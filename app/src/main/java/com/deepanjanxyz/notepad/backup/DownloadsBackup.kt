@@ -1,9 +1,11 @@
 package com.deepanjanxyz.notepad.backup
 
+import android.app.RecoverableSecurityException
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
+import android.content.IntentSender
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -49,6 +51,15 @@ object DownloadsBackup {
     data class Entry(val name: String, val lastModified: Long)
 
     /**
+     * Thrown when the backup file cannot be written until the user allows the app
+     * to write to it. [sender] is the system request that asks for that.
+     */
+    class BackupAccessException(
+        val sender: IntentSender,
+        cause: Throwable
+    ) : Exception("The backup file needs permission before it can be written", cause)
+
+    /**
      * Writes [json] to the backup file, replacing the contents of the file that
      * is already there.
      *
@@ -80,24 +91,45 @@ object DownloadsBackup {
      * Copies are only removed once the real backup is present. If it is missing,
      * one of those copies may be the only backup left, so it stays where the
      * Restore list can still offer it.
+     *
+     * A copy written by an earlier installation is not this app's to delete, and
+     * Android refuses without the user's consent. Those come back as the request
+     * that asks for it, for the caller to launch; null means nothing is left.
      */
-    fun cleanUpCopies(context: Context) {
+    fun cleanUpCopies(context: Context): IntentSender? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             cleanUpMediaStoreCopies(context)
         } else {
             cleanUpLegacyCopies()
+            null
         }
-    }
 
     @RequiresApi(Build.VERSION_CODES.Q)
-    private fun cleanUpMediaStoreCopies(context: Context) {
+    private fun cleanUpMediaStoreCopies(context: Context): IntentSender? {
         val resolver = context.contentResolver
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
         val names = readEntries(context).map { it.name }
-        if (names.contains(FILE_NAME)) {
-            names
-                .filter { it != FILE_NAME && BackupFileNames.isOurBackupName(it) }
-                .forEach { resolver.delete(collection, selection(), selectionArgs(it)) }
+        val copies = if (names.contains(FILE_NAME)) {
+            names.filter { it != FILE_NAME && BackupFileNames.isOurBackupName(it) }
+        } else {
+            emptyList()
+        }
+        val blocked = mutableListOf<Uri>()
+        var sender: IntentSender? = null
+        copies.forEach { name ->
+            val uri = findFile(resolver, collection, name) ?: return@forEach
+            when (val removal = removeFile(resolver, uri)) {
+                Removal.Removed -> Unit
+                is Removal.Blocked -> {
+                    blocked += uri
+                    if (sender == null) sender = removal.sender
+                }
+            }
+        }
+        return if (blocked.isNotEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            deleteRequest(resolver, blocked)
+        } else {
+            sender
         }
     }
 
@@ -229,11 +261,15 @@ object DownloadsBackup {
      */
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun overwriteInPlace(resolver: ContentResolver, uri: Uri, json: String) {
-        val previous = resolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+        val previous = runCatching { readBack(resolver, uri) }.getOrNull()
 
-        writeTo(resolver, uri, json)
+        try {
+            writeTo(resolver, uri, json)
+        } catch (e: SecurityException) {
+            throw accessException(resolver, uri, e)
+        }
 
-        if (resolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } == json) return
+        if (readBack(resolver, uri) == json) return
 
         if (previous != null) {
             runCatching { writeTo(resolver, uri, previous) }
@@ -244,8 +280,29 @@ object DownloadsBackup {
     /** Creates the file the first time a backup is written. */
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun insertNewFile(resolver: ContentResolver, collection: Uri, name: String, json: String) {
-        val uri = insertPendingFile(resolver, collection, name)
+        val created = insertPendingFile(resolver, collection, name)
             ?: error("Could not create the backup file in Downloads")
+        if (displayName(resolver, created) == name) {
+            publishOrDiscard(resolver, created, json)
+            return
+        }
+        // The media store only numbers a new file when the name is already taken
+        // by a file this app cannot see, so accepting "name (1)" is what turns one
+        // blocked write into a folder full of copies. Drop the numbered file and
+        // claim the name instead.
+        runCatching { resolver.delete(created, null, null) }
+        clearBlockingFile(resolver, collection, name)
+        val retry = insertPendingFile(resolver, collection, name)
+        if (retry != null && displayName(resolver, retry) == name) {
+            publishOrDiscard(resolver, retry, json)
+            return
+        }
+        retry?.let { runCatching { resolver.delete(it, null, null) } }
+        error("The backup file's name is held by an older copy in Downloads")
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun publishOrDiscard(resolver: ContentResolver, uri: Uri, json: String) {
         val written = runCatching { publishNewFile(resolver, uri, json) }
         if (written.isFailure) {
             // Never leave a half-written file behind for the next write to collide with.
@@ -257,7 +314,7 @@ object DownloadsBackup {
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun publishNewFile(resolver: ContentResolver, uri: Uri, json: String) {
         writeTo(resolver, uri, json)
-        if (resolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } != json) {
+        if (readBack(resolver, uri) != json) {
             error("The backup could not be verified after writing")
         }
         val published = ContentValues().apply {
@@ -272,6 +329,56 @@ object DownloadsBackup {
             ?: error("Could not open the backup file for writing")
         stream.use { it.write(json.toByteArray()) }
     }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun readBack(resolver: ContentResolver, uri: Uri): String? =
+        resolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun displayName(resolver: ContentResolver, uri: Uri): String? =
+        resolver.query(uri, arrayOf(MediaStore.MediaColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun clearBlockingFile(resolver: ContentResolver, collection: Uri, name: String) {
+        runCatching { resolver.delete(collection, selection(), selectionArgs(name)) }
+    }
+
+    /** What came of trying to delete a file this app may not own. */
+    private sealed interface Removal {
+        object Removed : Removal
+        data class Blocked(val sender: IntentSender?) : Removal
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun removeFile(resolver: ContentResolver, uri: Uri): Removal =
+        try {
+            resolver.delete(uri, null, null)
+            Removal.Removed
+        } catch (e: SecurityException) {
+            // A copy left by an earlier installation is not this app's to delete.
+            // Android 10 hands back the request that asks the user to allow it.
+            Removal.Blocked(if (e is RecoverableSecurityException) e.userAction.actionIntent else null)
+        }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun accessException(
+        resolver: ContentResolver,
+        uri: Uri,
+        cause: SecurityException
+    ): Exception = when {
+        cause is RecoverableSecurityException -> BackupAccessException(cause.userAction.actionIntent, cause)
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> BackupAccessException(writeRequest(resolver, uri), cause)
+        else -> cause
+    }
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun writeRequest(resolver: ContentResolver, uri: Uri): IntentSender =
+        MediaStore.createWriteRequest(resolver, listOf(uri)).intentSender
+
+    @RequiresApi(Build.VERSION_CODES.R)
+    private fun deleteRequest(resolver: ContentResolver, uris: List<Uri>): IntentSender =
+        MediaStore.createDeleteRequest(resolver, uris).intentSender
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun insertPendingFile(

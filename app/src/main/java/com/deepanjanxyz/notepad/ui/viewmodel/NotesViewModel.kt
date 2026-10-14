@@ -1,6 +1,7 @@
 package com.deepanjanxyz.notepad.ui.viewmodel
 
 import android.app.Application
+import android.content.IntentSender
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -61,7 +62,8 @@ data class ImportOutcome(val imported: Int, val skipped: Int)
 data class AutoBackupStatus(
     val location: String,
     val lastModified: Long?,
-    val error: String? = null
+    val error: String? = null,
+    val accessRequest: IntentSender? = null
 )
 
 data class NotesUiState(
@@ -433,7 +435,8 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             _autoBackupStatus.value = AutoBackupStatus(
                 location = DownloadsBackup.locationLabel(name),
                 lastModified = null,
-                error = error.message
+                error = error.message,
+                accessRequest = (error as? DownloadsBackup.BackupAccessException)?.sender
             )
         }
     }

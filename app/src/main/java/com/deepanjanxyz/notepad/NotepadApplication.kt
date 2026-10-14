@@ -68,7 +68,9 @@ class NotepadApplication : Application() {
         // Earlier versions could leave numbered copies of the backup file in
         // Downloads; clear them out once the real backup is present so the folder
         // holds one file again.
-        CoroutineScope(Dispatchers.IO).launch { DownloadsBackup.cleanUpCopies(this@NotepadApplication) }
+        CoroutineScope(Dispatchers.IO).launch {
+            runCatching { DownloadsBackup.cleanUpCopies(this@NotepadApplication) }
+        }
     }
 
     private companion object {

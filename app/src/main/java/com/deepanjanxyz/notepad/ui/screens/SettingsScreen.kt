@@ -1,12 +1,15 @@
 package com.deepanjanxyz.notepad.ui.screens
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
@@ -126,12 +129,41 @@ fun SettingsScreen(
     // never reports a save that did not happen.
     var backupInfo by remember { mutableStateOf<DownloadsBackup.Info?>(null) }
 
+    // A system request the user has to approve before the backup file can be
+    // written, or before copies an earlier installation left behind can be
+    // removed. Both are launched by the same button.
+    var pendingAccess by remember { mutableStateOf<BackupAccessRequest?>(null) }
+
     LaunchedEffect(autoBackupStatus, showRestoreDialog) {
         val (info, entries) = withContext(Dispatchers.IO) {
             DownloadsBackup.info(context) to DownloadsBackup.list(context)
         }
         backupInfo = info
         backupFileCount = entries.size
+        val leftover = withContext(Dispatchers.IO) { DownloadsBackup.cleanUpCopies(context) }
+        val blockedWrite = autoBackupStatus?.accessRequest
+        pendingAccess = when {
+            blockedWrite != null -> BackupAccessRequest(blockedWrite, isWrite = true)
+            leftover != null -> BackupAccessRequest(leftover, isWrite = false)
+            else -> null
+        }
+    }
+
+    val accessLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        val request = pendingAccess
+        scope.launch {
+            when {
+                result.resultCode != Activity.RESULT_OK ->
+                    snackbarHostState.showSnackbar("The backup file was left as it was")
+                request?.isWrite == true -> onBackUpNow(DownloadsBackup.FILE_NAME)
+                else -> {
+                    val leftover = withContext(Dispatchers.IO) { DownloadsBackup.cleanUpCopies(context) }
+                    pendingAccess = leftover?.let { BackupAccessRequest(it, isWrite = false) }
+                }
+            }
+        }
     }
 
     // Turning auto backup on needs the legacy storage permission on Android 9 and
@@ -495,6 +527,30 @@ fun SettingsScreen(
                         modifier = Modifier.testTag("backup_status_text")
                     )
 
+                    val access = pendingAccess
+                    if (access != null) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                accessLauncher.launch(
+                                    IntentSenderRequest.Builder(access.sender).build()
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("backup_access_button")
+                        ) {
+                            Text(
+                                if (access.isWrite) {
+                                    "Allow access to the backup file"
+                                } else {
+                                    "Remove leftover backup copies"
+                                }
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(12.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
                     Spacer(modifier = Modifier.height(8.dp))
@@ -717,6 +773,9 @@ private fun GitHubLinkRow(label: String, testTag: String, url: String) {
         )
     }
 }
+
+/** A system request the user must approve before the backup can be finished. */
+private data class BackupAccessRequest(val sender: IntentSender, val isWrite: Boolean)
 
 @Suppress("DEPRECATION")
 private fun getAppVersionName(context: Context): String =
