@@ -1,15 +1,12 @@
 package com.deepanjanxyz.notepad.ui.screens
 
 import android.Manifest
-import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.content.IntentSender
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
@@ -130,10 +127,6 @@ fun SettingsScreen(
     // never reports a save that did not happen.
     var backupInfo by remember { mutableStateOf<DownloadsBackup.Info?>(null) }
 
-    // A system request the user has to approve before the backup file can be
-    // written, or before copies an earlier installation left behind can be
-    // removed. Both are launched by the same button.
-    var pendingAccess by remember { mutableStateOf<BackupAccessRequest?>(null) }
     // Whether the folder holding the backup still has to be handed over.
     var offerFolder by remember { mutableStateOf(false) }
 
@@ -143,13 +136,7 @@ fun SettingsScreen(
         }
         backupInfo = info
         backupFileCount = entries.size
-        val leftover = withContext(Dispatchers.IO) { DownloadsBackup.cleanUpCopies(context) }
-        val blockedWrite = autoBackupStatus?.accessRequest
-        pendingAccess = when {
-            blockedWrite != null -> BackupAccessRequest(blockedWrite, isWrite = true)
-            leftover != null -> BackupAccessRequest(leftover, isWrite = false)
-            else -> null
-        }
+        withContext(Dispatchers.IO) { DownloadsBackup.cleanUpCopies(context) }
         // A backup written by an earlier installation cannot be replaced through
         // the media store, and every write would be saved beside it under a new
         // name. Handing the folder over is the way out, so it is offered as soon
@@ -167,23 +154,6 @@ fun SettingsScreen(
                 uri == null -> Unit
                 BackupFolder.take(context, uri) -> onBackUpNow(DownloadsBackup.FILE_NAME)
                 else -> snackbarHostState.showSnackbar("The folder could not be kept for the backup")
-            }
-        }
-    }
-
-    val accessLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartIntentSenderForResult()
-    ) { result ->
-        val request = pendingAccess
-        scope.launch {
-            when {
-                result.resultCode != Activity.RESULT_OK ->
-                    snackbarHostState.showSnackbar("The backup file was left as it was")
-                request?.isWrite == true -> onBackUpNow(DownloadsBackup.FILE_NAME)
-                else -> {
-                    val leftover = withContext(Dispatchers.IO) { DownloadsBackup.cleanUpCopies(context) }
-                    pendingAccess = leftover?.let { BackupAccessRequest(it, isWrite = false) }
-                }
             }
         }
     }
@@ -549,30 +519,6 @@ fun SettingsScreen(
                         modifier = Modifier.testTag("backup_status_text")
                     )
 
-                    val access = pendingAccess
-                    if (access != null) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OutlinedButton(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                accessLauncher.launch(
-                                    IntentSenderRequest.Builder(access.sender).build()
-                                )
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("backup_access_button")
-                        ) {
-                            Text(
-                                if (access.isWrite) {
-                                    "Allow access to the backup file"
-                                } else {
-                                    "Remove leftover backup copies"
-                                }
-                            )
-                        }
-                    }
-
                     if (offerFolder) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
@@ -820,9 +766,6 @@ private fun GitHubLinkRow(label: String, testTag: String, url: String) {
         )
     }
 }
-
-/** A system request the user must approve before the backup can be finished. */
-private data class BackupAccessRequest(val sender: IntentSender, val isWrite: Boolean)
 
 @Suppress("DEPRECATION")
 private fun getAppVersionName(context: Context): String =

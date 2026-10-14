@@ -1,11 +1,9 @@
 package com.deepanjanxyz.notepad.backup
 
-import android.app.RecoverableSecurityException
 import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
-import android.content.IntentSender
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -71,15 +69,6 @@ object DownloadsBackup {
     data class Entry(val name: String, val lastModified: Long)
 
     /**
-     * Thrown when the backup file cannot be written until the user allows the app
-     * to write to it. [sender] is the system request that asks for that.
-     */
-    class BackupAccessException(
-        val sender: IntentSender,
-        cause: Throwable
-    ) : Exception("The backup file needs permission before it can be written", cause)
-
-    /**
      * Writes [json] to the backup file, replacing the contents of the file that
      * is already there.
      *
@@ -136,19 +125,19 @@ object DownloadsBackup {
      * Restore list can still offer it.
      *
      * A copy written by an earlier installation is not this app's to delete, and
-     * Android refuses without the user's consent. Those come back as the request
-     * that asks for it, for the caller to launch; null means nothing is left.
+     * the media store offers no way to ask: the consent requests it has cover
+     * images, video and audio, and a Downloads file is none of those. Clearing
+     * those copies is what the folder grant is for.
      */
-    fun cleanUpCopies(context: Context): IntentSender? =
+    fun cleanUpCopies(context: Context) {
         if (BackupFolder.hasAccess(context)) {
             cleanUpFolderCopies(context)
-            null
         } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             cleanUpMediaStoreCopies(context)
         } else {
             cleanUpLegacyCopies()
-            null
         }
+    }
 
     /**
      * Removes the copies in the granted folder. Nothing has to be asked for here:
@@ -163,32 +152,19 @@ object DownloadsBackup {
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
-    private fun cleanUpMediaStoreCopies(context: Context): IntentSender? {
+    private fun cleanUpMediaStoreCopies(context: Context) {
         val resolver = context.contentResolver
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
         val names = readEntries(context).map { it.name }
-        val copies = if (names.contains(FILE_NAME)) {
-            names.filter { it != FILE_NAME && BackupFileNames.isOurBackupName(it) }
-        } else {
-            emptyList()
-        }
-        val blocked = mutableListOf<Uri>()
-        var sender: IntentSender? = null
-        copies.forEach { name ->
-            val uri = findFile(resolver, collection, name) ?: return@forEach
-            when (val removal = removeFile(resolver, uri)) {
-                Removal.Removed -> Unit
-                is Removal.Blocked -> {
-                    blocked += uri
-                    if (sender == null) sender = removal.sender
-                }
+        if (!names.contains(FILE_NAME)) return
+        names
+            .filter { it != FILE_NAME && BackupFileNames.isOurBackupName(it) }
+            .forEach { name ->
+                val uri = findFile(resolver, collection, name) ?: return@forEach
+                // A copy this app may not delete is left where it is; the folder
+                // grant is what clears it.
+                runCatching { resolver.delete(uri, null, null) }
             }
-        }
-        return if (blocked.isNotEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            deleteRequest(resolver, blocked)
-        } else {
-            sender
-        }
     }
 
     private fun cleanUpLegacyCopies() {
@@ -334,7 +310,14 @@ object DownloadsBackup {
         try {
             writeTo(resolver, uri, json)
         } catch (e: SecurityException) {
-            throw accessException(resolver, uri, e)
+            // The file belongs to an earlier installation, and the media store can
+            // neither replace it nor ask the user for it - a Downloads file is not
+            // an image, video or audio item. Handing the folder over is the way
+            // through, so say that rather than write a second file beside it.
+            throw IllegalStateException(
+                "The backup file belongs to an earlier installation; allow access to the backup folder",
+                e
+            )
         }
 
         if (readBack(resolver, uri) == json) return
@@ -411,43 +394,6 @@ object DownloadsBackup {
     private fun clearBlockingFile(resolver: ContentResolver, collection: Uri, name: String) {
         runCatching { resolver.delete(collection, selection(), selectionArgs(name)) }
     }
-
-    /** What came of trying to delete a file this app may not own. */
-    private sealed interface Removal {
-        object Removed : Removal
-        data class Blocked(val sender: IntentSender?) : Removal
-    }
-
-    @RequiresApi(Build.VERSION_CODES.Q)
-    private fun removeFile(resolver: ContentResolver, uri: Uri): Removal =
-        try {
-            resolver.delete(uri, null, null)
-            Removal.Removed
-        } catch (e: SecurityException) {
-            // A copy left by an earlier installation is not this app's to delete.
-            // Android 10 hands back the request that asks the user to allow it.
-            Removal.Blocked(if (e is RecoverableSecurityException) e.userAction.actionIntent.intentSender else null)
-        }
-
-    @RequiresApi(Build.VERSION_CODES.Q)
-    private fun accessException(
-        resolver: ContentResolver,
-        uri: Uri,
-        cause: SecurityException
-    ): Exception = when {
-        cause is RecoverableSecurityException ->
-            BackupAccessException(cause.userAction.actionIntent.intentSender, cause)
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> BackupAccessException(writeRequest(resolver, uri), cause)
-        else -> cause
-    }
-
-    @RequiresApi(Build.VERSION_CODES.R)
-    private fun writeRequest(resolver: ContentResolver, uri: Uri): IntentSender =
-        MediaStore.createWriteRequest(resolver, listOf(uri)).intentSender
-
-    @RequiresApi(Build.VERSION_CODES.R)
-    private fun deleteRequest(resolver: ContentResolver, uris: List<Uri>): IntentSender =
-        MediaStore.createDeleteRequest(resolver, uris).intentSender
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun insertPendingFile(
