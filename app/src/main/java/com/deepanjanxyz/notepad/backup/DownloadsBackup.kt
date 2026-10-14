@@ -358,7 +358,7 @@ object DownloadsBackup {
         } catch (e: SecurityException) {
             // A copy left by an earlier installation is not this app's to delete.
             // Android 10 hands back the request that asks the user to allow it.
-            Removal.Blocked(if (e is RecoverableSecurityException) e.userAction.actionIntent else null)
+            Removal.Blocked(if (e is RecoverableSecurityException) e.userAction.actionIntent.intentSender else null)
         }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -367,7 +367,8 @@ object DownloadsBackup {
         uri: Uri,
         cause: SecurityException
     ): Exception = when {
-        cause is RecoverableSecurityException -> BackupAccessException(cause.userAction.actionIntent, cause)
+        cause is RecoverableSecurityException ->
+            BackupAccessException(cause.userAction.actionIntent.intentSender, cause)
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> BackupAccessException(writeRequest(resolver, uri), cause)
         else -> cause
     }
