@@ -1,8 +1,11 @@
 A sturdier auto backup: one file, no clutter.
 
-- Auto backup now keeps a single file in Downloads and rewrites it in place
+- Auto backup keeps a single file in Downloads and rewrites it in place
 - Numbered copies such as "elite-memo-backup (18).json" are no longer created
-- Leftover copies left by earlier versions are cleared automatically
-- If the backup file cannot be rewritten, Settings says so instead of saving another copy
+- If a backup left by an earlier installation is in the way, Settings offers to
+  let the app write over that one instead of saving another beside it, and the
+  notes already in it are brought back into the app first
+- If the backup file cannot be rewritten, Settings says so instead of quietly
+  saving another copy
 
 Thank you for using Elite Memo Pro!
