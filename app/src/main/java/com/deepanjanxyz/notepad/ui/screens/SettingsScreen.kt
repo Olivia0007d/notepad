@@ -83,6 +83,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.deepanjanxyz.notepad.R
+import com.deepanjanxyz.notepad.backup.BackupFolder
 import com.deepanjanxyz.notepad.backup.DownloadsBackup
 import com.deepanjanxyz.notepad.backup.BackupParseResult
 import com.deepanjanxyz.notepad.backup.parseBackupJson
@@ -133,6 +134,8 @@ fun SettingsScreen(
     // written, or before copies an earlier installation left behind can be
     // removed. Both are launched by the same button.
     var pendingAccess by remember { mutableStateOf<BackupAccessRequest?>(null) }
+    // Whether the folder holding the backup still has to be handed over.
+    var offerFolder by remember { mutableStateOf(false) }
 
     LaunchedEffect(autoBackupStatus, showRestoreDialog) {
         val (info, entries) = withContext(Dispatchers.IO) {
@@ -146,6 +149,25 @@ fun SettingsScreen(
             blockedWrite != null -> BackupAccessRequest(blockedWrite, isWrite = true)
             leftover != null -> BackupAccessRequest(leftover, isWrite = false)
             else -> null
+        }
+        // A backup written by an earlier installation cannot be replaced through
+        // the media store, and every write would be saved beside it under a new
+        // name. Handing the folder over is the way out, so it is offered as soon
+        // as the app can see that this has happened.
+        val granted = withContext(Dispatchers.IO) { DownloadsBackup.hasFolderAccess(context) }
+        val stuckCopies = withContext(Dispatchers.IO) { DownloadsBackup.needsFolderAccess(context) }
+        offerFolder = !granted && (stuckCopies || autoBackupStatus?.error != null)
+    }
+
+    val folderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        scope.launch {
+            when {
+                uri == null -> Unit
+                BackupFolder.take(context, uri) -> onBackUpNow(DownloadsBackup.FILE_NAME)
+                else -> snackbarHostState.showSnackbar("The folder could not be kept for the backup")
+            }
         }
     }
 
@@ -548,6 +570,31 @@ fun SettingsScreen(
                                     "Remove leftover backup copies"
                                 }
                             )
+                        }
+                    }
+
+                    if (offerFolder) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "A backup from an earlier installation is already there. " +
+                                "Allow access to the backup folder so it can be replaced instead of " +
+                                "copied beside.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                folderLauncher.launch(
+                                    BackupFolder.initialUri(BackupFolder.FOLDER_NAME)
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("backup_folder_button")
+                        ) {
+                            Text("Allow access to the backup folder")
                         }
                     }
 

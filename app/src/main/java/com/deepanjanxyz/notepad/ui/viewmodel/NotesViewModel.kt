@@ -6,9 +6,12 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.deepanjanxyz.notepad.NotepadApplication
+import com.deepanjanxyz.notepad.backup.BackupFolder
+import com.deepanjanxyz.notepad.backup.BackupParseResult
 import com.deepanjanxyz.notepad.backup.DownloadsBackup
 import com.deepanjanxyz.notepad.backup.buildBackupJson
 import com.deepanjanxyz.notepad.backup.isBackupWorthy
+import com.deepanjanxyz.notepad.backup.parseBackupJson
 import com.deepanjanxyz.notepad.domain.model.Note
 import com.deepanjanxyz.notepad.domain.usecase.label.LabelUseCases
 import com.deepanjanxyz.notepad.domain.usecase.note.NoteUseCases
@@ -412,6 +415,13 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
     /** The body of [writeBackup], run with the backup write lock held. */
     private suspend fun writeBackupLocked(name: String) {
         val context = getApplication<Application>()
+        // A folder the user has just handed over may already hold a backup written
+        // by an earlier installation. Its notes are brought in before the file is
+        // written over, so the write replaces it with everything the user has
+        // rather than with only what this installation knows about.
+        if (BackupFolder.consumeAdoption(context)) {
+            adoptExistingBackup(context)
+        }
         // Never write an empty backup file. When there is nothing to store - every
         // note deleted, say - the last non-empty backup is deliberately kept
         // rather than replaced with an empty one: a backup still holding
@@ -438,6 +448,16 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 error = error.message,
                 accessRequest = (error as? DownloadsBackup.BackupAccessException)?.sender
             )
+        }
+    }
+
+    /** Brings in the notes of a backup that was already in a folder just handed over. */
+    private suspend fun adoptExistingBackup(context: Application) {
+        val text = withContext(Dispatchers.IO) { DownloadsBackup.read(context) } ?: return
+        when (val parsed = parseBackupJson(text)) {
+            is BackupParseResult.Success -> importNotesNow(parsed.notes)
+            is BackupParseResult.Failure ->
+                Log.w(TAG, "The backup already in the folder was not read: ${parsed.reason}")
         }
     }
 
@@ -670,51 +690,54 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
      * so restoring the same backup twice does not duplicate.
      */
     fun importNotes(notes: List<Note>) {
+        viewModelScope.launch { importNotesNow(notes) }
+    }
+
+    /** The body of [importNotes], so a caller that has to wait for it can. */
+    private suspend fun importNotesNow(notes: List<Note>) {
         if (notes.isEmpty()) {
             _importOutcome.value = ImportOutcome(imported = 0, skipped = 0)
             return
         }
-        viewModelScope.launch {
-            val context = getApplication<Application>()
-            val now = System.currentTimeMillis()
-            val seen = (rawActiveNotes.value + archiveNotes.value + trashNotes.value)
-                .map { noteKey(it) }
-                .toMutableSet()
-            var imported = 0
-            var skipped = 0
-            notes.forEach { note ->
-                if (!seen.add(noteKey(note))) {
-                    skipped++
-                    return@forEach
-                }
-                // Stored through the Note overload rather than the field-by-field
-                // one, so the backup's own creation date and timestamps survive
-                // the restore instead of being regenerated as today.
-                val newId = noteUseCases.saveNote(
-                    note.copy(
-                        id = 0L,
-                        inTrash = false,
-                        createdAt = note.createdAt.takeIf { it > 0L } ?: now,
-                        updatedAt = note.updatedAt.takeIf { it > 0L } ?: now
-                    )
-                )
-                // A reminder time in the database does not fire anything on its
-                // own, so the alarm is scheduled for every future reminder that
-                // came in with the backup.
-                val trigger = note.reminderTime
-                if (trigger != null && trigger > now) {
-                    NoteReminderScheduler.scheduleReminder(
-                        context = context,
-                        noteId = newId,
-                        noteTitle = note.title,
-                        noteContent = note.content,
-                        triggerAtMillis = trigger
-                    )
-                }
-                imported++
+        val context = getApplication<Application>()
+        val now = System.currentTimeMillis()
+        val seen = (rawActiveNotes.value + archiveNotes.value + trashNotes.value)
+            .map { noteKey(it) }
+            .toMutableSet()
+        var imported = 0
+        var skipped = 0
+        notes.forEach { note ->
+            if (!seen.add(noteKey(note))) {
+                skipped++
+                return@forEach
             }
-            _importOutcome.value = ImportOutcome(imported = imported, skipped = skipped)
+            // Stored through the Note overload rather than the field-by-field
+            // one, so the backup's own creation date and timestamps survive
+            // the restore instead of being regenerated as today.
+            val newId = noteUseCases.saveNote(
+                note.copy(
+                    id = 0L,
+                    inTrash = false,
+                    createdAt = note.createdAt.takeIf { it > 0L } ?: now,
+                    updatedAt = note.updatedAt.takeIf { it > 0L } ?: now
+                )
+            )
+            // A reminder time in the database does not fire anything on its
+            // own, so the alarm is scheduled for every future reminder that
+            // came in with the backup.
+            val trigger = note.reminderTime
+            if (trigger != null && trigger > now) {
+                NoteReminderScheduler.scheduleReminder(
+                    context = context,
+                    noteId = newId,
+                    noteTitle = note.title,
+                    noteContent = note.content,
+                    triggerAtMillis = trigger
+                )
+            }
+            imported++
         }
+        _importOutcome.value = ImportOutcome(imported = imported, skipped = skipped)
     }
 
     /** Consumes the one-shot import result so it is only shown once. */

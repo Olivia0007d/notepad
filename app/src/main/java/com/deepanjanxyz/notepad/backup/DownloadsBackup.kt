@@ -12,6 +12,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import androidx.annotation.RequiresApi
 import java.io.File
+import java.io.IOException
 
 /**
  * Reads and writes the app's backup file in the public Downloads folder.
@@ -26,6 +27,12 @@ import java.io.File
  * permission for files the app itself owns. On Android 9 and below it is written
  * to the public Downloads directory directly, which requires
  * WRITE_EXTERNAL_STORAGE at run time.
+ *
+ * A file written by an earlier installation is not owned by this one, so the
+ * media store will not let the app replace it and saves each new backup beside
+ * it under a numbered name instead. Once the user hands the folder over (see
+ * [BackupFolder]) the folder is used, which can read the old file, replace it
+ * and clear the copies away.
  */
 object DownloadsBackup {
 
@@ -33,13 +40,26 @@ object DownloadsBackup {
     const val FILE_NAME: String = BackupFileNames.FILE_NAME
 
     private const val MIME_TYPE = "application/json"
-    private const val FOLDER_NAME = "EliteMemoPro"
+    private const val FOLDER_NAME = BackupFolder.FOLDER_NAME
     // Built from the framework constant, so it cannot be a compile-time const.
     private val RELATIVE_DIR = "${Environment.DIRECTORY_DOWNLOADS}/$FOLDER_NAME"
 
     /** True when writing needs the legacy WRITE_EXTERNAL_STORAGE runtime permission. */
     val needsLegacyPermission: Boolean
         get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+
+    /** True when the user has handed the backup folder to the app. */
+    fun hasFolderAccess(context: Context): Boolean = BackupFolder.hasAccess(context)
+
+    /**
+     * True when the folder has not been granted and copies this app cannot touch
+     * are already sitting in it - the state a reinstall leaves behind, where every
+     * write would add another file. Settings offers the grant then.
+     */
+    fun needsFolderAccess(context: Context): Boolean =
+        !BackupFolder.hasAccess(context) && readEntries(context).any {
+            it.name != FILE_NAME && BackupFileNames.isOurBackupName(it.name)
+        }
 
     /** Location of a backup file, phrased for display in Settings. */
     fun locationLabel(name: String = FILE_NAME): String = "Downloads/$FOLDER_NAME/$name"
@@ -78,10 +98,33 @@ object DownloadsBackup {
         // Clear out copies left by earlier versions before writing, so the write
         // cannot collide with one of them.
         cleanUpCopies(context)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (BackupFolder.hasAccess(context)) {
+            writeViaFolder(context, json, name)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             writeViaMediaStore(context, json, name)
         } else {
             writeViaFile(json, name)
+        }
+    }
+
+    /**
+     * Writes through the folder the user granted: the file that is already there
+     * is reused, and one is created only when the folder holds none at all.
+     */
+    private fun writeViaFolder(context: Context, json: String, name: String) {
+        val existing = BackupFolder.find(context, name)
+        if (existing != null) {
+            BackupFolder.write(context, existing.uri, json)
+            return
+        }
+        val created = BackupFolder.create(context, name)
+            ?: error("Could not create the backup file in Downloads")
+        try {
+            BackupFolder.write(context, created, json)
+        } catch (e: IOException) {
+            // Never leave a half-written file behind for the next write to collide with.
+            BackupFolder.delete(context, created)
+            throw e
         }
     }
 
@@ -97,12 +140,27 @@ object DownloadsBackup {
      * that asks for it, for the caller to launch; null means nothing is left.
      */
     fun cleanUpCopies(context: Context): IntentSender? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (BackupFolder.hasAccess(context)) {
+            cleanUpFolderCopies(context)
+            null
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             cleanUpMediaStoreCopies(context)
         } else {
             cleanUpLegacyCopies()
             null
         }
+
+    /**
+     * Removes the copies in the granted folder. Nothing has to be asked for here:
+     * the folder was handed over, so every file in it is the app's to delete.
+     */
+    private fun cleanUpFolderCopies(context: Context) {
+        val children = BackupFolder.children(context)
+        if (children.none { it.name == FILE_NAME }) return
+        children
+            .filter { it.name != FILE_NAME && BackupFileNames.isOurBackupName(it.name) }
+            .forEach { BackupFolder.delete(context, it.uri) }
+    }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun cleanUpMediaStoreCopies(context: Context): IntentSender? {
@@ -144,7 +202,9 @@ object DownloadsBackup {
 
     /** Reads a backup file, or null when it does not exist. */
     fun read(context: Context, name: String = FILE_NAME): String? =
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (BackupFolder.hasAccess(context)) {
+            BackupFolder.find(context, name)?.let { BackupFolder.read(context, it.uri) }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             readViaMediaStore(context, name)
         } else {
             legacyFile(name).takeIf { it.exists() }?.readText()
@@ -152,6 +212,10 @@ object DownloadsBackup {
 
     /** Describes the default backup file, or null when it does not exist. */
     fun info(context: Context): Info? {
+        if (BackupFolder.hasAccess(context)) {
+            val found = BackupFolder.find(context, FILE_NAME)
+            return found?.let { Info(locationLabel(), it.lastModified) }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val resolver = context.contentResolver
             resolver.query(
@@ -182,7 +246,11 @@ object DownloadsBackup {
      * missing, which is exactly when one of them is the copy worth recovering.
      */
     fun list(context: Context): List<Entry> {
-        val entries = readEntries(context)
+        val entries = if (BackupFolder.hasAccess(context)) {
+            BackupFolder.children(context).map { Entry(it.name, it.lastModified) }
+        } else {
+            readEntries(context)
+        }
         val hasRealBackup = entries.any { it.name == FILE_NAME }
         return entries
             .filter { !(hasRealBackup && it.name != FILE_NAME && BackupFileNames.isOurBackupName(it.name)) }
