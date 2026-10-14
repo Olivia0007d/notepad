@@ -17,29 +17,23 @@ import java.io.File
  * The public Downloads folder is used instead of app-private storage on purpose:
  * the file stays there after the app's data is cleared (or the app is
  * uninstalled), so the notes can be restored afterwards, and the user can open
- * the folder and see the file. A single file is kept by default and replaced on
- * every write, so backups never pile up.
+ * the folder and see the file.
  *
- * On Android 10+ the file is written through MediaStore, which needs no runtime
+ * One file is kept, and every write replaces its contents. On Android 10 and
+ * above that file is written through the media store, which needs no runtime
  * permission for files the app itself owns. On Android 9 and below it is written
  * to the public Downloads directory directly, which requires
  * WRITE_EXTERNAL_STORAGE at run time.
  */
 object DownloadsBackup {
 
-    /** Name of the single, always-overwritten backup file. */
-    const val FILE_NAME = "elite-memo-backup.json"
+    /** Name of the single, always-replaced backup file. */
+    const val FILE_NAME: String = BackupFileNames.FILE_NAME
 
     private const val MIME_TYPE = "application/json"
     private const val FOLDER_NAME = "EliteMemoPro"
     // Built from the framework constant, so it cannot be a compile-time const.
     private val RELATIVE_DIR = "${Environment.DIRECTORY_DOWNLOADS}/$FOLDER_NAME"
-    private const val JSON_SUFFIX = ".json"
-    // Suffixes of the internal working files a write goes through. They are not
-    // backups in their own right, and are kept out of the Restore list whenever
-    // the real backup is present.
-    private const val PARTIAL_SUFFIX = ".partial.json"
-    private const val PREVIOUS_SUFFIX = ".previous.json"
 
     /** True when writing needs the legacy WRITE_EXTERNAL_STORAGE runtime permission. */
     val needsLegacyPermission: Boolean
@@ -55,12 +49,13 @@ object DownloadsBackup {
     data class Entry(val name: String, val lastModified: Long)
 
     /**
-     * Writes [json] to a backup file, replacing any existing file of the same name.
+     * Writes [json] to the backup file, replacing the contents of the file that
+     * is already there.
      *
-     * The new content is written to a temporary file and read back before the
-     * previous backup is touched, so a failed or interrupted write can never
-     * leave the user without their last good backup: the old file is only
-     * replaced once the new one is confirmed on disk.
+     * The new content is written over the existing file rather than saved under a
+     * new name, and it is read back before the write is called a success, so a
+     * failed or interrupted write cannot leave the user without their last good
+     * backup.
      */
     fun write(context: Context, json: String, name: String = FILE_NAME) {
         // Deliberate recovery policy, not an oversight: when there is nothing
@@ -69,39 +64,51 @@ object DownloadsBackup {
         // notes with one that holds nothing would turn a recoverable mistake
         // into an unrecoverable one.
         if (json.isBlank()) return
-        val tempName = partialName(name)
+        // Clear out copies left by earlier versions before writing, so the write
+        // cannot collide with one of them.
+        cleanUpCopies(context)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            writeViaMediaStore(context, json, tempName, name)
+            writeViaMediaStore(context, json, name)
         } else {
-            writeViaFile(json, tempName, name)
+            writeViaFile(json, name)
         }
     }
 
     /**
-     * Name of the temporary file a write goes through first.
+     * Removes the numbered copies of this app's backup files.
      *
-     * It deliberately keeps the `.json` suffix: if a write is interrupted between
-     * the previous file being dropped and the temporary one being renamed, the
-     * verified copy is still returned by [list] and can be restored by hand.
+     * Copies are only removed once the real backup is present. If it is missing,
+     * one of those copies may be the only backup left, so it stays where the
+     * Restore list can still offer it.
      */
-    private fun partialName(name: String): String =
-        if (name.endsWith(JSON_SUFFIX)) {
-            name.removeSuffix(JSON_SUFFIX) + PARTIAL_SUFFIX
+    fun cleanUpCopies(context: Context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            cleanUpMediaStoreCopies(context)
         } else {
-            "$name.partial"
+            cleanUpLegacyCopies()
         }
+    }
 
-    /**
-     * Name the previous backup is parked under while the new one is moved into
-     * place. Like the partial name, it keeps the `.json` suffix so an interrupted
-     * swap still leaves a restorable file.
-     */
-    private fun previousName(name: String): String =
-        if (name.endsWith(JSON_SUFFIX)) {
-            name.removeSuffix(JSON_SUFFIX) + PREVIOUS_SUFFIX
-        } else {
-            "$name.previous"
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun cleanUpMediaStoreCopies(context: Context) {
+        val resolver = context.contentResolver
+        val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+        val names = readEntries(context).map { it.name }
+        if (names.contains(FILE_NAME)) {
+            names
+                .filter { it != FILE_NAME && BackupFileNames.isOurBackupName(it) }
+                .forEach { resolver.delete(collection, selection(), selectionArgs(it)) }
         }
+    }
+
+    private fun cleanUpLegacyCopies() {
+        val files = legacyDir().listFiles().orEmpty()
+        if (files.any { it.name == FILE_NAME }) {
+            files
+                .filter { it.name != FILE_NAME && BackupFileNames.isOurBackupName(it.name) }
+                .forEach { it.delete() }
+        }
+    }
 
     /** Reads a backup file, or null when it does not exist. */
     fun read(context: Context, name: String = FILE_NAME): String? =
@@ -136,9 +143,9 @@ object DownloadsBackup {
     /**
      * Every backup file in the folder, newest first.
      *
-     * The `.partial` / `.previous` files a write goes through are internal, not
-     * backups in their own right. While the real backup is present they are left
-     * out, so the folder and the Restore list show the user a single backup
+     * The working files and the numbered copies a write goes through are internal,
+     * not backups in their own right. While the real backup is present they are
+     * left out, so the folder and the Restore list show the user a single backup
      * rather than a backup of a backup. They appear only when the real backup is
      * missing, which is exactly when one of them is the copy worth recovering.
      */
@@ -146,7 +153,7 @@ object DownloadsBackup {
         val entries = readEntries(context)
         val hasRealBackup = entries.any { it.name == FILE_NAME }
         return entries
-            .filter { !(hasRealBackup && isInternal(it.name)) }
+            .filter { !(hasRealBackup && it.name != FILE_NAME && BackupFileNames.isOurBackupName(it.name)) }
             .sortedByDescending { it.lastModified }
     }
 
@@ -163,21 +170,17 @@ object DownloadsBackup {
             )?.use { cursor ->
                 while (cursor.moveToNext()) {
                     val name = cursor.getString(0) ?: continue
-                    if (!name.endsWith(JSON_SUFFIX)) continue
+                    if (!name.endsWith(BackupFileNames.JSON_SUFFIX)) continue
                     entries += Entry(name, cursor.getLong(1) * 1000L)
                 }
             }
             return entries
         }
         return legacyDir()
-            .listFiles { file -> file.isFile && file.name.endsWith(JSON_SUFFIX) }
+            .listFiles { file -> file.isFile && file.name.endsWith(BackupFileNames.JSON_SUFFIX) }
             ?.map { Entry(it.name, it.lastModified()) }
             .orEmpty()
     }
-
-    /** True for the internal working files a write goes through. */
-    private fun isInternal(name: String): Boolean =
-        name.endsWith(PARTIAL_SUFFIX) || name.endsWith(PREVIOUS_SUFFIX)
 
     /** Removes a backup file. Returns true when a file was actually removed. */
     fun delete(context: Context, name: String = FILE_NAME): Boolean {
@@ -193,66 +196,81 @@ object DownloadsBackup {
 
     // --- Android 10+ (MediaStore) -------------------------------------------------
 
+    /**
+     * Writes the backup through the media store.
+     *
+     * The file that is already there is found and its contents are replaced. The
+     * media store never overwrites a file by name: adding one under a name that
+     * exists quietly saves it as `name (1)`, `name (2)` and so on, and gives up
+     * after about thirty of them with "Failed to build unique file". So nothing is
+     * ever inserted or renamed while a backup exists - that is what keeps the
+     * folder to a single file.
+     */
     @RequiresApi(Build.VERSION_CODES.Q)
-    private fun writeViaMediaStore(
-        context: Context,
-        json: String,
-        tempName: String,
-        finalName: String
-    ) {
+    private fun writeViaMediaStore(context: Context, json: String, name: String) {
         val resolver = context.contentResolver
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
-
-        // Clear the working files left behind by an interrupted earlier write.
-        // The .previous copy is only worth keeping while the real backup is
-        // missing, so once it is back the leftover is just clutter.
-        resolver.delete(collection, selection(), selectionArgs(tempName))
-        if (findFile(resolver, collection, finalName) != null) {
-            resolver.delete(collection, selection(), selectionArgs(previousName(finalName)))
+        val existing = findFile(resolver, collection, name)
+        if (existing == null) {
+            insertNewFile(resolver, collection, name, json)
+        } else {
+            overwriteInPlace(resolver, existing, json)
         }
+    }
 
-        val uri = insertPendingFile(resolver, collection, tempName)
+    /**
+     * Replaces the contents of a file that is already in the folder.
+     *
+     * The stream is opened in "wt" mode on purpose. From Android 10 "w" no longer
+     * truncates, so a shorter backup written over a longer one would leave the
+     * tail of the old file in place and produce invalid JSON; "wt" is the mode
+     * that truncates. The bytes that were there are kept in memory first, so a
+     * write that cannot be verified can be undone.
+     */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun overwriteInPlace(resolver: ContentResolver, uri: Uri, json: String) {
+        val previous = resolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+
+        writeTo(resolver, uri, json)
+
+        if (resolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } == json) return
+
+        if (previous != null) {
+            runCatching { writeTo(resolver, uri, previous) }
+        }
+        error("The backup could not be verified after writing")
+    }
+
+    /** Creates the file the first time a backup is written. */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun insertNewFile(resolver: ContentResolver, collection: Uri, name: String, json: String) {
+        val uri = insertPendingFile(resolver, collection, name)
             ?: error("Could not create the backup file in Downloads")
+        val written = runCatching { publishNewFile(resolver, uri, json) }
+        if (written.isFailure) {
+            // Never leave a half-written file behind for the next write to collide with.
+            runCatching { resolver.delete(uri, null, null) }
+            throw written.exceptionOrNull() ?: IllegalStateException("The backup could not be written")
+        }
+    }
 
-        resolver.openOutputStream(uri)?.use { output ->
-            output.write(json.toByteArray())
-        } ?: error("Could not open the backup file for writing")
-
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun publishNewFile(resolver: ContentResolver, uri: Uri, json: String) {
+        writeTo(resolver, uri, json)
+        if (resolver.openInputStream(uri)?.use { it.readBytes().decodeToString() } != json) {
+            error("The backup could not be verified after writing")
+        }
         val published = ContentValues().apply {
             put(MediaStore.MediaColumns.IS_PENDING, 0)
         }
         resolver.update(uri, published, null, null)
+    }
 
-        // Read the new file back before the previous backup is touched: if the
-        // bytes do not match, the old backup is left exactly as it was.
-        val written = resolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
-        if (written != json) {
-            resolver.delete(uri, null, null)
-            error("The backup could not be verified after writing")
-        }
-
-        // The new copy is confirmed on disk, but the previous backup is still not
-        // deleted: a rename can fail on some builds or under scoped-storage
-        // restrictions, and deleting first would then leave nothing but the
-        // .partial file. Instead the old file is parked under a third name, the
-        // new one is promoted, and only once that promotion is confirmed is the
-        // old copy removed. If the promotion fails, the old file is put back
-        // exactly where it was.
-        val parkedUri = findFile(resolver, collection, finalName)
-        if (parkedUri != null && !rename(resolver, parkedUri, previousName(finalName))) {
-            // The old backup could not be moved aside, so nothing is touched and
-            // the verified new copy is kept under its temporary name.
-            error("Could not move the previous backup aside")
-        }
-
-        if (!rename(resolver, uri, finalName)) {
-            // Put the previous backup back under its real name; the verified new
-            // copy stays on disk as the .partial file, so neither is lost.
-            if (parkedUri != null) rename(resolver, parkedUri, finalName)
-            error("Could not replace the previous backup")
-        }
-
-        resolver.delete(collection, selection(), selectionArgs(previousName(finalName)))
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun writeTo(resolver: ContentResolver, uri: Uri, json: String) {
+        val stream = resolver.openOutputStream(uri, "wt")
+            ?: error("Could not open the backup file for writing")
+        stream.use { it.write(json.toByteArray()) }
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -285,28 +303,6 @@ object DownloadsBackup {
                 null
             }
         }
-
-    /**
-     * Renames a file and confirms the new name actually took effect. A silent
-     * no-op update is exactly the case that would otherwise lose the backup, so
-     * the result is read back rather than assumed.
-     */
-    @RequiresApi(Build.VERSION_CODES.Q)
-    private fun rename(resolver: ContentResolver, uri: Uri, name: String): Boolean {
-        val values = ContentValues().apply {
-            put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-        }
-        resolver.update(uri, values, null, null)
-        return resolver.query(
-            uri,
-            arrayOf(MediaStore.MediaColumns.DISPLAY_NAME),
-            null,
-            null,
-            null
-        )?.use { cursor ->
-            cursor.moveToFirst() && cursor.getString(0) == name
-        } ?: false
-    }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun readViaMediaStore(context: Context, name: String): String? {
@@ -350,10 +346,11 @@ object DownloadsBackup {
      *
      * The rename replaces the destination in a single step on the same
      * filesystem, so the previous backup is never absent while the new one is
-     * being put in place.
+     * being put in place. This path is only used below Android 10, where a
+     * filesystem rename replaces the file outright.
      */
-    private fun writeViaFile(json: String, tempName: String, finalName: String) {
-        val temp = legacyFile(tempName)
+    private fun writeViaFile(json: String, finalName: String) {
+        val temp = legacyFile(BackupFileNames.partialName(finalName))
         temp.parentFile?.mkdirs()
         temp.writeText(json)
         if (temp.readText() != json) {

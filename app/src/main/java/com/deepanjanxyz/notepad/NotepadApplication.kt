@@ -1,6 +1,7 @@
 package com.deepanjanxyz.notepad
 
 import android.app.Application
+import com.deepanjanxyz.notepad.backup.DownloadsBackup
 import com.deepanjanxyz.notepad.data.NoteRepositoryProvider
 import com.deepanjanxyz.notepad.data.SettingsRepositoryProvider
 import com.deepanjanxyz.notepad.domain.repository.NoteRepository
@@ -63,6 +64,11 @@ class NotepadApplication : Application() {
         // Deleted notes are kept for a fixed window and then dropped, so the
         // purge runs once per launch rather than on every trash action.
         CoroutineScope(Dispatchers.IO).launch { container.noteUseCases.purgeExpiredTrash() }
+
+        // Earlier versions could leave numbered copies of the backup file in
+        // Downloads; clear them out once the real backup is present so the folder
+        // holds one file again.
+        CoroutineScope(Dispatchers.IO).launch { DownloadsBackup.cleanUpCopies(this@NotepadApplication) }
     }
 
     private companion object {
