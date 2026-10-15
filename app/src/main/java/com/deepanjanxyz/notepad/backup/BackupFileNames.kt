@@ -51,6 +51,23 @@ object BackupFileNames {
         listOf(FILE_NAME, partialName(FILE_NAME), previousName(FILE_NAME))
             .any { isCopyOf(it, name) }
 
+    /**
+     * The copies among [found] that can safely be removed, newest first.
+     *
+     * While the real backup is there, every copy is surplus. When it is not - the
+     * state a reinstall leaves behind, the old file still on disk but no longer
+     * this app's to see - the newest copy is kept back, because it may be the only
+     * backup the app can still reach and losing it would be worse than one extra
+     * file left behind.
+     */
+    fun copiesToRemove(found: List<Pair<String, Long>>): List<String> {
+        val copies = found
+            .filter { it.first != FILE_NAME && isOurBackupName(it.first) }
+            .sortedByDescending { it.second }
+        val keepNewest = !found.any { it.first == FILE_NAME }
+        return (if (keepNewest) copies.drop(1) else copies).map { it.first }
+    }
+
     /** True when [name] is [candidate] itself, or the `(N)` copy the media store made of it. */
     fun isCopyOf(candidate: String, name: String): Boolean {
         if (name == candidate) return true

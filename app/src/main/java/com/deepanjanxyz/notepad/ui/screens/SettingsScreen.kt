@@ -153,7 +153,9 @@ fun SettingsScreen(
             when {
                 uri == null -> Unit
                 BackupFolder.take(context, uri) -> onBackUpNow(DownloadsBackup.FILE_NAME)
-                else -> snackbarHostState.showSnackbar("The folder could not be kept for the backup")
+                else -> snackbarHostState.showSnackbar(
+                    "The backup folder has to be the EliteMemoPro folder inside Downloads"
+                )
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.deepanjanxyz.notepad.backup
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,6 +33,48 @@ class BackupFileNamesTest {
         assertFalse(BackupFileNames.isOurBackupName("elite-memo-backup copy.json"))
         assertFalse(BackupFileNames.isOurBackupName("elite-memo-backup (x).json"))
         assertFalse(BackupFileNames.isOurBackupName("elite-memo-backup (1).txt"))
+    }
+
+    @Test
+    fun testEveryCopyGoesOnceTheRealBackupIsThere() {
+        val found = listOf(
+            "elite-memo-backup.json" to 100L,
+            "elite-memo-backup (1).json" to 90L,
+            "elite-memo-backup (2).json" to 95L
+        )
+        assertEquals(
+            listOf("elite-memo-backup (2).json", "elite-memo-backup (1).json"),
+            BackupFileNames.copiesToRemove(found)
+        )
+    }
+
+    @Test
+    fun testTheNewestCopyIsKeptWhenTheRealBackupIsNotVisible() {
+        val found = listOf(
+            "elite-memo-backup (1).json" to 90L,
+            "elite-memo-backup (2).json" to 95L,
+            "elite-memo-backup (3).json" to 80L
+        )
+        assertEquals(
+            listOf("elite-memo-backup (1).json", "elite-memo-backup (3).json"),
+            BackupFileNames.copiesToRemove(found)
+        )
+    }
+
+    @Test
+    fun testTheLastCopyIsNeverRemoved() {
+        assertEquals(
+            emptyList<String>(),
+            BackupFileNames.copiesToRemove(listOf("elite-memo-backup (7).json" to 1L))
+        )
+    }
+
+    @Test
+    fun testFilesThatAreNotOursAreNeverRemoved() {
+        assertEquals(
+            emptyList<String>(),
+            BackupFileNames.copiesToRemove(listOf("holiday.json" to 5L, "notes.txt" to 6L))
+        )
     }
 
     @Test

@@ -29,6 +29,9 @@ object BackupFolder {
     private const val KEY_ADOPT_PENDING = "adopt_pending"
     private const val AUTHORITY = "com.android.externalstorage.documents"
     private const val MIME_TYPE = "application/json"
+    // The documented mode for replacing a document's contents: read-write, and
+    // truncate first. "w" alone no longer truncates on recent releases.
+    private const val WRITE_MODE = "rwt"
 
     /** One file in the granted folder. */
     data class Child(val uri: Uri, val name: String, val lastModified: Long)
@@ -54,12 +57,18 @@ object BackupFolder {
         )
 
     /**
-     * Keeps the folder the user picked, so it survives restarts and reboots. The
-     * folder is also marked for adoption: whatever backup is already in it was
+     * Keeps the folder the user picked, so it survives restarts and reboots.
+     *
+     * The folder is checked first, because the picker will let the user confirm
+     * any folder at all and the write, the cleanup and the location shown in
+     * Settings all assume the backup folder is the one that was chosen.
+     *
+     * The folder is also marked for adoption: whatever backup is already in it was
      * not written by this installation, and its notes are brought in on the first
      * write rather than overwritten unseen.
      */
     fun take(context: Context, uri: Uri): Boolean {
+        if (nameOf(context, treeDocumentUri(uri)) != FOLDER_NAME) return false
         val taken = runCatching {
             context.contentResolver.takePersistableUriPermission(
                 uri,
@@ -75,13 +84,17 @@ object BackupFolder {
         return taken
     }
 
-    /** True once, for the first write after a folder is granted. */
-    fun consumeAdoption(context: Context): Boolean {
-        val pending = preferences(context).getBoolean(KEY_ADOPT_PENDING, false)
-        if (pending) {
-            preferences(context).edit().putBoolean(KEY_ADOPT_PENDING, false).apply()
-        }
-        return pending
+    /**
+     * True while a folder has been granted whose backup has not been brought in
+     * yet. It stays true until [finishAdoption], so an import that could not be
+     * done is tried again rather than silently skipped.
+     */
+    fun hasAdoption(context: Context): Boolean =
+        preferences(context).getBoolean(KEY_ADOPT_PENDING, false)
+
+    /** Marks the adoption finished, so the next write is a plain overwrite. */
+    fun finishAdoption(context: Context) {
+        preferences(context).edit().putBoolean(KEY_ADOPT_PENDING, false).apply()
     }
 
     /** Every file in the granted folder. */
@@ -121,10 +134,7 @@ object BackupFolder {
         val tree = treeUri(context) ?: return false
         return runCatching {
             context.contentResolver.query(
-                DocumentsContract.buildDocumentUriUsingTree(
-                    tree,
-                    DocumentsContract.getTreeDocumentId(tree)
-                ),
+                treeDocumentUri(tree),
                 arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
                 null,
                 null,
@@ -147,31 +157,68 @@ object BackupFolder {
             context.contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
         }.getOrNull()
 
-    /** Replaces the contents of an existing file and reads them back. */
+    /**
+     * Replaces the contents of an existing file and reads them back.
+     *
+     * The bytes that were there are read first, so a write that fails or cannot
+     * be verified puts them back instead of leaving the user without their last
+     * good backup.
+     */
     fun write(context: Context, uri: Uri, json: String) {
-        val stream = context.contentResolver.openOutputStream(uri, "wt")
+        val previous = read(context, uri)
+        val written = runCatching { writeTo(context, uri, json) }
+        if (written.isSuccess && read(context, uri) == json) return
+        if (previous != null) {
+            runCatching { writeTo(context, uri, previous) }
+        }
+        throw written.exceptionOrNull()
+            ?: IOException("The backup could not be verified after writing")
+    }
+
+    private fun writeTo(context: Context, uri: Uri, json: String) {
+        val stream = context.contentResolver.openOutputStream(uri, WRITE_MODE)
             ?: throw IOException("Could not open the backup file for writing")
         stream.use { it.write(json.toByteArray()) }
-        if (read(context, uri) != json) {
-            throw IOException("The backup could not be verified after writing")
-        }
     }
 
     /**
-     * Creates the file under exactly this name, or returns null when it cannot be
-     * created - which is what keeps a second file from ever being written beside
-     * the first.
+     * Creates the file under exactly this name, or returns null when the folder
+     * will not give it that name - which is what keeps a second file from ever
+     * being written beside the first. A provider answers a name that is already
+     * taken with "name (1)" rather than an error, so the name that came back is
+     * read and a numbered file is removed again.
      */
     fun create(context: Context, name: String): Uri? {
         val tree = treeUri(context) ?: return null
-        val parent = DocumentsContract.buildDocumentUriUsingTree(
-            tree,
-            DocumentsContract.getTreeDocumentId(tree)
-        )
-        return runCatching {
-            DocumentsContract.createDocument(context.contentResolver, parent, MIME_TYPE, name)
+        val created = runCatching {
+            DocumentsContract.createDocument(
+                context.contentResolver,
+                treeDocumentUri(tree),
+                MIME_TYPE,
+                name
+            )
         }.getOrNull()
+        val usable = created?.takeIf { nameOf(context, it) == name }
+        if (created != null && usable == null) {
+            delete(context, created)
+        }
+        return usable
     }
+
+    private fun treeDocumentUri(tree: Uri): Uri =
+        DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+
+    /** The display name of a single document, or null when it cannot be read. */
+    private fun nameOf(context: Context, uri: Uri): String? =
+        runCatching {
+            context.contentResolver.query(
+                uri,
+                arrayOf(DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+                null,
+                null,
+                null
+            )?.use { if (it.moveToFirst()) it.getString(0) else null }
+        }.getOrNull()
 
     fun delete(context: Context, uri: Uri): Boolean =
         runCatching { DocumentsContract.deleteDocument(context.contentResolver, uri) }

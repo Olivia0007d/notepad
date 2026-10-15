@@ -188,28 +188,10 @@ object DownloadsBackup {
      */
     private fun cleanUpFolderCopies(context: Context) {
         val children = BackupFolder.children(context)
-        val surplus = surplusCopyNames(children.map { it.name to it.lastModified }).toSet()
+        val surplus = BackupFileNames.copiesToRemove(children.map { it.name to it.lastModified }).toSet()
         children
             .filter { it.name in surplus }
             .forEach { BackupFolder.delete(context, it.uri) }
-    }
-
-    /**
-     * The names of the copies that can safely go, newest first, out of everything
-     * found in the folder.
-     *
-     * While the real backup is there, every copy is surplus. When it is not - the
-     * state a reinstall leaves behind, the old file still on disk but no longer
-     * this app's to see - the newest copy is kept back, because it may be the only
-     * backup this app can still reach and losing it would be worse than one extra
-     * file left behind.
-     */
-    private fun surplusCopyNames(found: List<Pair<String, Long>>): List<String> {
-        val copies = found
-            .filter { it.first != FILE_NAME && BackupFileNames.isOurBackupName(it.first) }
-            .sortedByDescending { it.second }
-        val keepNewest = !found.any { it.first == FILE_NAME }
-        return (if (keepNewest) copies.drop(1) else copies).map { it.first }
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
@@ -217,7 +199,7 @@ object DownloadsBackup {
         val resolver = context.contentResolver
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
         val found = readEntries(context).map { it.name to it.lastModified }
-        surplusCopyNames(found).forEach { name ->
+        BackupFileNames.copiesToRemove(found).forEach { name ->
             val uri = findFile(resolver, collection, name) ?: return@forEach
             // A copy this app may not delete is left where it is; the folder
             // grant is what clears it.
@@ -355,11 +337,11 @@ object DownloadsBackup {
     /**
      * Replaces the contents of a file that is already in the folder.
      *
-     * The stream is opened in "wt" mode on purpose. From Android 10 "w" no longer
+     * The stream is opened in "rwt" mode on purpose. From Android 10 "w" no longer
      * truncates, so a shorter backup written over a longer one would leave the
-     * tail of the old file in place and produce invalid JSON; "wt" is the mode
+     * tail of the old file in place and produce invalid JSON; "rwt" is the mode
      * that truncates. The bytes that were there are kept in memory first, so a
-     * write that cannot be verified can be undone.
+     * write that fails or cannot be verified is undone.
      */
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun overwriteInPlace(resolver: ContentResolver, uri: Uri, json: String) {
@@ -376,6 +358,13 @@ object DownloadsBackup {
                 "The backup file belongs to an earlier installation; allow access to the backup folder",
                 e
             )
+        } catch (e: IOException) {
+            // A write that fails part-way leaves the file truncated, so the bytes
+            // that were there go back before the failure is passed on.
+            if (previous != null) {
+                runCatching { writeTo(resolver, uri, previous) }
+            }
+            throw e
         }
 
         if (readBack(resolver, uri) == json) return
@@ -434,7 +423,9 @@ object DownloadsBackup {
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun writeTo(resolver: ContentResolver, uri: Uri, json: String) {
-        val stream = resolver.openOutputStream(uri, "wt")
+        // The documented mode for replacing a file's contents: read-write, and
+        // truncate first. "w" alone no longer truncates on recent releases.
+        val stream = resolver.openOutputStream(uri, "rwt")
             ?: error("Could not open the backup file for writing")
         stream.use { it.write(json.toByteArray()) }
     }

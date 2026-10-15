@@ -420,9 +420,19 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         // A folder the user has just handed over may already hold a backup written
         // by an earlier installation. Its notes are brought in before the file is
         // written over, so the write replaces it with everything the user has
-        // rather than with only what this installation knows about.
-        if (BackupFolder.consumeAdoption(context)) {
-            adoptExistingBackup(context)
+        // rather than with only what this installation knows about. The adoption
+        // stays pending until the import is done, and the write is held back while
+        // it cannot be.
+        if (BackupFolder.hasAdoption(context)) {
+            if (adoptExistingBackup(context)) {
+                _autoBackupStatus.value = AutoBackupStatus(
+                    location = DownloadsBackup.locationLabel(name),
+                    lastModified = null,
+                    error = "The backup already in the folder could not be read"
+                )
+                return
+            }
+            BackupFolder.finishAdoption(context)
         }
         // Never write an empty backup file. When there is nothing to store - every
         // note deleted, say - the last non-empty backup is deliberately kept
@@ -452,13 +462,25 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Brings in the notes of a backup that was already in a folder just handed over. */
-    private suspend fun adoptExistingBackup(context: Application) {
-        val text = withContext(Dispatchers.IO) { DownloadsBackup.read(context) } ?: return
-        when (val parsed = parseBackupJson(text)) {
-            is BackupParseResult.Success -> importNotesNow(parsed.notes)
-            is BackupParseResult.Failure ->
+    /**
+     * Brings in the notes of a backup that was already in a folder just handed
+     * over. Returns true when the folder holds a backup that could not be read,
+     * which is the one case where the write has to be held back: writing over a
+     * file this app cannot read would throw away notes it cannot see.
+     */
+    private suspend fun adoptExistingBackup(context: Application): Boolean {
+        val present = withContext(Dispatchers.IO) { DownloadsBackup.info(context) != null }
+        val text = withContext(Dispatchers.IO) { DownloadsBackup.read(context) }
+        if (text == null) return present
+        return when (val parsed = parseBackupJson(text)) {
+            is BackupParseResult.Success -> {
+                importNotesNow(parsed.notes)
+                false
+            }
+            is BackupParseResult.Failure -> {
                 Log.w(TAG, "The backup already in the folder was not read: ${parsed.reason}")
+                true
+            }
         }
     }
 
