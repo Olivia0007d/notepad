@@ -386,6 +386,10 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
         if (autoBackupJob?.isActive == true) return
         autoBackupJob = viewModelScope.launch {
+            // Turning the switch on is also the point to make sure the folder the
+            // backup lives in is there, so there is somewhere to write even when
+            // there is nothing to write yet.
+            withContext(Dispatchers.IO) { DownloadsBackup.ensureFolder(getApplication()) }
             // Take a snapshot straight away, so turning the switch on is all the
             // user has to do - no manual "Back up now" step is needed.
             writeAutoBackup()

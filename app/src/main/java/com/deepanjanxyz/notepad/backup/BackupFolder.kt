@@ -116,6 +116,28 @@ object BackupFolder {
         return children
     }
 
+    /** True when the granted folder is still there and can be read. */
+    fun isReachable(context: Context): Boolean {
+        val tree = treeUri(context) ?: return false
+        return runCatching {
+            context.contentResolver.query(
+                DocumentsContract.buildDocumentUriUsingTree(
+                    tree,
+                    DocumentsContract.getTreeDocumentId(tree)
+                ),
+                arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID),
+                null,
+                null,
+                null
+            )?.use { it.moveToFirst() } ?: false
+        }.getOrDefault(false)
+    }
+
+    /** Forgets the granted folder, so the user is asked for it again. */
+    fun release(context: Context) {
+        preferences(context).edit().remove(KEY_TREE_URI).apply()
+    }
+
     /** The file in the folder with this exact name, or null. */
     fun find(context: Context, name: String): Child? =
         children(context).firstOrNull { it.name == name }

@@ -38,6 +38,9 @@ object DownloadsBackup {
     const val FILE_NAME: String = BackupFileNames.FILE_NAME
 
     private const val MIME_TYPE = "application/json"
+    // Not a backup, and not a .json, so the entry used to bring the folder into
+    // being never shows up in the backup lists, even for the moment it exists.
+    private const val FOLDER_MARKER = ".elite-memo-folder"
     private const val FOLDER_NAME = BackupFolder.FOLDER_NAME
     // Built from the framework constant, so it cannot be a compile-time const.
     private val RELATIVE_DIR = "${Environment.DIRECTORY_DOWNLOADS}/$FOLDER_NAME"
@@ -59,6 +62,36 @@ object DownloadsBackup {
             it.name != FILE_NAME && BackupFileNames.isOurBackupName(it.name)
         }
 
+    /**
+     * Makes sure the folder the backup is kept in exists.
+     *
+     * The folder comes into being with the first file put in it, so an install
+     * that has never backed up has nowhere for the file to go - and nowhere for
+     * the folder picker to open at either. Calling this when automatic backup is
+     * switched on puts the folder there at that point, and calling it before a
+     * write puts it back if the user has removed it since.
+     */
+    fun ensureFolder(context: Context) {
+        if (BackupFolder.hasAccess(context)) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ensureMediaStoreFolder(context)
+        } else {
+            legacyDir().mkdirs()
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun ensureMediaStoreFolder(context: Context) {
+        if (readEntries(context).isNotEmpty()) return
+        // The media store makes the folder as a side effect of a file being put
+        // in it, and has no way to make one on its own, so an entry is placed and
+        // taken away again.
+        val resolver = context.contentResolver
+        val uri = insertPendingFile(resolver, MediaStore.Downloads.EXTERNAL_CONTENT_URI, FOLDER_MARKER)
+            ?: return
+        runCatching { resolver.delete(uri, null, null) }
+    }
+
     /** Location of a backup file, phrased for display in Settings. */
     fun locationLabel(name: String = FILE_NAME): String = "Downloads/$FOLDER_NAME/$name"
 
@@ -78,6 +111,9 @@ object DownloadsBackup {
      * backup.
      */
     fun write(context: Context, json: String, name: String = FILE_NAME) {
+        // The folder is put back if it has been removed, so a write always has
+        // somewhere to go.
+        ensureFolder(context)
         // Deliberate recovery policy, not an oversight: when there is nothing
         // worth storing - every note deleted, say - the file already on disk is
         // left exactly as it is. Replacing a backup that still holds yesterday's
@@ -101,6 +137,13 @@ object DownloadsBackup {
      * is reused, and one is created only when the folder holds none at all.
      */
     private fun writeViaFolder(context: Context, json: String, name: String) {
+        if (!BackupFolder.isReachable(context)) {
+            // The folder the user granted has been removed or renamed. Forget the
+            // grant so Settings asks for it again, and fail loudly rather than
+            // write nothing and leave it looking as though a backup was made.
+            BackupFolder.release(context)
+            error("The backup folder could not be reached; allow access to it again")
+        }
         val existing = BackupFolder.find(context, name)
         if (existing != null) {
             BackupFolder.write(context, existing.uri, json)
