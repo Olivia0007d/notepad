@@ -113,7 +113,7 @@ object BackupFolder {
     @RequiresApi(Build.VERSION_CODES.O)
     private fun isUnderDownloads(context: Context, tree: Uri): Boolean {
         val path = runCatching {
-            DocumentsContract.findDocumentPath(context.contentResolver, tree)?.path
+            DocumentsContract.findDocumentPath(context.contentResolver, treeDocumentUri(tree))?.path
         }.getOrNull() ?: return false
         val expected = "${Environment.DIRECTORY_DOWNLOADS}/$FOLDER_NAME"
         return path.any { it.endsWith(":$expected") }
