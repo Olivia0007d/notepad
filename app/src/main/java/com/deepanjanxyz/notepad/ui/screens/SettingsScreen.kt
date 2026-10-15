@@ -80,6 +80,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.deepanjanxyz.notepad.R
+import com.deepanjanxyz.notepad.backup.BackupFolder
 import com.deepanjanxyz.notepad.backup.DownloadsBackup
 import com.deepanjanxyz.notepad.backup.BackupParseResult
 import com.deepanjanxyz.notepad.backup.parseBackupJson
@@ -126,12 +127,37 @@ fun SettingsScreen(
     // never reports a save that did not happen.
     var backupInfo by remember { mutableStateOf<DownloadsBackup.Info?>(null) }
 
+    // Whether the folder holding the backup still has to be handed over.
+    var offerFolder by remember { mutableStateOf(false) }
+
     LaunchedEffect(autoBackupStatus, showRestoreDialog) {
         val (info, entries) = withContext(Dispatchers.IO) {
             DownloadsBackup.info(context) to DownloadsBackup.list(context)
         }
         backupInfo = info
         backupFileCount = entries.size
+        withContext(Dispatchers.IO) { DownloadsBackup.cleanUpCopies(context) }
+        // A backup written by an earlier installation cannot be replaced through
+        // the media store, and every write would be saved beside it under a new
+        // name. Handing the folder over is the way out, so it is offered as soon
+        // as the app can see that this has happened.
+        val granted = withContext(Dispatchers.IO) { DownloadsBackup.hasFolderAccess(context) }
+        val stuckCopies = withContext(Dispatchers.IO) { DownloadsBackup.needsFolderAccess(context) }
+        offerFolder = !granted && (stuckCopies || autoBackupStatus?.error != null)
+    }
+
+    val folderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        scope.launch {
+            when {
+                uri == null -> Unit
+                BackupFolder.take(context, uri) -> onBackUpNow(DownloadsBackup.FILE_NAME)
+                else -> snackbarHostState.showSnackbar(
+                    "The backup folder has to be the EliteMemoPro folder inside Downloads"
+                )
+            }
+        }
     }
 
     // Turning auto backup on needs the legacy storage permission on Android 9 and
@@ -494,6 +520,31 @@ fun SettingsScreen(
                         },
                         modifier = Modifier.testTag("backup_status_text")
                     )
+
+                    if (offerFolder) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "A backup from an earlier installation is already there. " +
+                                "Allow access to the backup folder so it can be replaced instead of " +
+                                "copied beside.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedButton(
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                folderLauncher.launch(
+                                    BackupFolder.initialUri(BackupFolder.FOLDER_NAME)
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("backup_folder_button")
+                        ) {
+                            Text("Allow access to the backup folder")
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(12.dp))
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
