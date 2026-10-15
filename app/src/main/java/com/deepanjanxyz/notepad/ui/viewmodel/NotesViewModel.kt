@@ -428,7 +428,8 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 _autoBackupStatus.value = AutoBackupStatus(
                     location = DownloadsBackup.locationLabel(name),
                     lastModified = null,
-                    error = "The backup already in the folder could not be read"
+                    error = "The backup already in the folder could not be read; " +
+                        "delete it in Downloads to back up again"
                 )
                 return
             }

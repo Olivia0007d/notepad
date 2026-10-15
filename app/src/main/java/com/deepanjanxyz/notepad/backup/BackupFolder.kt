@@ -68,7 +68,7 @@ object BackupFolder {
      * write rather than overwritten unseen.
      */
     fun take(context: Context, uri: Uri): Boolean {
-        if (nameOf(context, treeDocumentUri(uri)) != FOLDER_NAME) return false
+        if (!isBackupFolder(context, uri)) return false
         val taken = runCatching {
             context.contentResolver.takePersistableUriPermission(
                 uri,
@@ -95,6 +95,28 @@ object BackupFolder {
     /** Marks the adoption finished, so the next write is a plain overwrite. */
     fun finishAdoption(context: Context) {
         preferences(context).edit().putBoolean(KEY_ADOPT_PENDING, false).apply()
+    }
+
+    /**
+     * True when the tree is the backup folder inside Downloads - and not merely a
+     * folder with the same name somewhere else, which the picker would happily
+     * hand over while the write, the cleanup and the location shown in Settings
+     * all went on assuming the backup folder is this one.
+     */
+    private fun isBackupFolder(context: Context, tree: Uri): Boolean =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            isUnderDownloads(context, tree)
+        } else {
+            nameOf(context, treeDocumentUri(tree)) == FOLDER_NAME
+        }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun isUnderDownloads(context: Context, tree: Uri): Boolean {
+        val path = runCatching {
+            DocumentsContract.findDocumentPath(context.contentResolver, tree)?.path
+        }.getOrNull() ?: return false
+        val expected = "${Environment.DIRECTORY_DOWNLOADS}/$FOLDER_NAME"
+        return path.any { it.endsWith(":$expected") }
     }
 
     /** Every file in the granted folder. */
@@ -165,7 +187,11 @@ object BackupFolder {
      * good backup.
      */
     fun write(context: Context, uri: Uri, json: String) {
-        val previous = read(context, uri)
+        // Read without swallowing errors: if the old contents cannot be read then
+        // the write must not begin at all, because there would be nothing to put
+        // back if it failed.
+        val previous = context.contentResolver.openInputStream(uri)
+            ?.use { it.readBytes().decodeToString() }
         val written = runCatching { writeTo(context, uri, json) }
         if (written.isSuccess && read(context, uri) == json) return
         if (previous != null) {
