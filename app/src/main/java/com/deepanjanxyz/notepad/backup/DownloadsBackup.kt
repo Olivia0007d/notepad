@@ -188,26 +188,41 @@ object DownloadsBackup {
      */
     private fun cleanUpFolderCopies(context: Context) {
         val children = BackupFolder.children(context)
-        if (children.none { it.name == FILE_NAME }) return
+        val surplus = surplusCopyNames(children.map { it.name to it.lastModified }).toSet()
         children
-            .filter { it.name != FILE_NAME && BackupFileNames.isOurBackupName(it.name) }
+            .filter { it.name in surplus }
             .forEach { BackupFolder.delete(context, it.uri) }
+    }
+
+    /**
+     * The names of the copies that can safely go, newest first, out of everything
+     * found in the folder.
+     *
+     * While the real backup is there, every copy is surplus. When it is not - the
+     * state a reinstall leaves behind, the old file still on disk but no longer
+     * this app's to see - the newest copy is kept back, because it may be the only
+     * backup this app can still reach and losing it would be worse than one extra
+     * file left behind.
+     */
+    private fun surplusCopyNames(found: List<Pair<String, Long>>): List<String> {
+        val copies = found
+            .filter { it.first != FILE_NAME && BackupFileNames.isOurBackupName(it.first) }
+            .sortedByDescending { it.second }
+        val keepNewest = !found.any { it.first == FILE_NAME }
+        return (if (keepNewest) copies.drop(1) else copies).map { it.first }
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun cleanUpMediaStoreCopies(context: Context) {
         val resolver = context.contentResolver
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
-        val names = readEntries(context).map { it.name }
-        if (!names.contains(FILE_NAME)) return
-        names
-            .filter { it != FILE_NAME && BackupFileNames.isOurBackupName(it) }
-            .forEach { name ->
-                val uri = findFile(resolver, collection, name) ?: return@forEach
-                // A copy this app may not delete is left where it is; the folder
-                // grant is what clears it.
-                runCatching { resolver.delete(uri, null, null) }
-            }
+        val found = readEntries(context).map { it.name to it.lastModified }
+        surplusCopyNames(found).forEach { name ->
+            val uri = findFile(resolver, collection, name) ?: return@forEach
+            // A copy this app may not delete is left where it is; the folder
+            // grant is what clears it.
+            runCatching { resolver.delete(uri, null, null) }
+        }
     }
 
     private fun cleanUpLegacyCopies() {
