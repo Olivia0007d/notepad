@@ -65,6 +65,7 @@ fun TrashScreen(
     trashNotes: List<Note>,
     isGridLayout: Boolean,
     onOpenDrawer: () -> Unit,
+    onNavigateBack: () -> Unit,
     onRestoreNote: (Long) -> Unit,
     onPermanentlyDeleteNote: (Long) -> Unit,
     onEmptyTrash: () -> Unit,
@@ -79,8 +80,14 @@ fun TrashScreen(
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var pendingDeleteNoteId by remember { mutableStateOf<Long?>(null) }
 
-    BackHandler(enabled = isSelectionMode) {
-        selectedNoteIds = emptySet()
+    // One handler with the branch inside, rather than a second one competing with
+    // it: a selection clears first, and only then does back leave the screen.
+    BackHandler {
+        if (isSelectionMode) {
+            selectedNoteIds = emptySet()
+        } else {
+            onNavigateBack()
+        }
     }
 
     if (showEmptyTrashConfirm) {

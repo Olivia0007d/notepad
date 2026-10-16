@@ -160,19 +160,16 @@ class MainActivity : FragmentActivity() {
             // When the last back press was, so a second one shortly after leaves.
             var lastBackAt by remember { mutableStateOf(0L) }
 
-            // Called unconditionally and before the screens, so it is composed
-            // first and every screen's own handler takes precedence over it. A
-            // conditional call would reorder the handlers on recomposition and
-            // could run this one in place of the editor's save-before-exit.
-            BackHandler {
+            // Active only on the home screen, which is the one place back can
+            // leave from. Every other screen owns its own back - the editor and
+            // the drawing screen save before they go, archive and trash return
+            // home - so this never runs in their place. `enabled` is the
+            // documented way to scope a handler: calling BackHandler inside an
+            // if would reorder the handlers on recomposition instead.
+            BackHandler(enabled = uiState.currentScreen is Screen.Home) {
                 val now = System.currentTimeMillis()
                 when {
                     drawerState.isOpen -> scope.launch { drawerState.close() }
-                    viewModel.navigateBack() -> Unit
-                    // The history is what back walks, not what it relies on:
-                    // whatever became of it, a press away from the home screen goes
-                    // there rather than leaving the app.
-                    uiState.currentScreen !is Screen.Home -> viewModel.navigateTo(Screen.Home)
                     now - lastBackAt < EXIT_BACK_WINDOW_MS -> finish()
                     else -> {
                         lastBackAt = now
@@ -345,6 +342,7 @@ class MainActivity : FragmentActivity() {
                                                 onOpenDrawer = {
                                                     scope.launch { drawerState.open() }
                                                 },
+                                                onNavigateBack = { viewModel.navigateTo(Screen.Home) },
                                                 onRestoreNote = { viewModel.restoreFromArchive(it) },
                                                 onMoveToTrash = { viewModel.moveToTrash(it) },
                                                 onRestoreSelected = { selectedIds ->
@@ -371,6 +369,7 @@ class MainActivity : FragmentActivity() {
                                                 onOpenDrawer = {
                                                     scope.launch { drawerState.open() }
                                                 },
+                                                onNavigateBack = { viewModel.navigateTo(Screen.Home) },
                                                 onRestoreNote = { viewModel.restoreFromTrash(it) },
                                                 onPermanentlyDeleteNote = { viewModel.permanentlyDelete(it) },
                                                 onEmptyTrash = { viewModel.emptyTrash() },

@@ -297,46 +297,12 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Where the user has been, oldest first. Back walks this one step at a time
-    // rather than jumping to the home screen, so leaving a note returns to the
-    // list it was opened from.
-    private val backStack = mutableListOf<Screen>()
-
-    /**
-     * Moves to [screen], remembering where the user was so back can return there.
-     *
-     * A screen already on the stack is returned to by walking back to it rather
-     * than pushed again: the drawer and the back buttons both land on screens the
-     * user has visited, and pushing those would leave back bouncing between two
-     * screens for ever.
-     */
     fun navigateTo(screen: Screen) {
-        val current = _uiState.value.currentScreen
-        if (screen == current) return
-        val visited = backStack.indexOfLast { it == screen }
-        if (visited >= 0) {
-            while (backStack.size > visited) {
-                backStack.removeLast()
-            }
-        } else {
-            backStack.add(current)
-        }
         _uiState.value = _uiState.value.copy(
             currentScreen = screen,
             isSelectionMode = false,
             selectedNoteIds = emptySet()
         )
-    }
-
-    /** Steps one screen back. True when there was a screen to go back to. */
-    fun navigateBack(): Boolean {
-        val previous = backStack.removeLastOrNull() ?: return false
-        _uiState.value = _uiState.value.copy(
-            currentScreen = previous,
-            isSelectionMode = false,
-            selectedNoteIds = emptySet()
-        )
-        return true
     }
 
     fun unlockApp() {

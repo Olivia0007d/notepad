@@ -67,6 +67,7 @@ fun ArchiveScreen(
     notes: List<Note>,
     isGridLayout: Boolean,
     onOpenDrawer: () -> Unit,
+    onNavigateBack: () -> Unit,
     onRestoreNote: (Long) -> Unit,
     onMoveToTrash: (Long) -> Unit,
     onRestoreSelected: (List<Long>) -> Unit,
@@ -80,8 +81,14 @@ fun ArchiveScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    BackHandler(enabled = isSelectionMode) {
-        selectedNoteIds = emptySet()
+    // One handler with the branch inside, rather than a second one competing with
+    // it: a selection clears first, and only then does back leave the screen.
+    BackHandler {
+        if (isSelectionMode) {
+            selectedNoteIds = emptySet()
+        } else {
+            onNavigateBack()
+        }
     }
 
     Scaffold(
