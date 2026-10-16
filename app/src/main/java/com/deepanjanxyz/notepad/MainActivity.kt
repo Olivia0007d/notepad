@@ -199,6 +199,17 @@ class MainActivity : FragmentActivity() {
                             }
                         }
 
+                        // The exit prompt belongs to the screen that raised it. Moving
+                        // away - a screen change, or the drawer opening - takes the
+                        // prompt and its two-second window with it, so a press
+                        // somewhere else can never leave the app on the strength of an
+                        // earlier one, and the Exit action cannot be tapped once an
+                        // edit has begun.
+                        LaunchedEffect(uiState.currentScreen, drawerState.isOpen) {
+                            lastBackAt = 0L
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                        }
+
                         // Navigation Drawer Menu (ModalNavigationDrawer)
                         ModalNavigationDrawer(
                             drawerState = drawerState,
