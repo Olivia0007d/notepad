@@ -68,8 +68,8 @@ fun TrashScreen(
     onRestoreNote: (Long) -> Unit,
     onPermanentlyDeleteNote: (Long) -> Unit,
     onEmptyTrash: () -> Unit,
-    onRestoreSelected: () -> Unit,
-    onPermanentlyDeleteSelected: () -> Unit,
+    onRestoreSelected: (List<Long>) -> Unit,
+    onPermanentlyDeleteSelected: (List<Long>) -> Unit,
     onNoteClick: (Note) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -117,7 +117,7 @@ fun TrashScreen(
                 TextButton(
                     onClick = {
                         showDeleteConfirm = false
-                        onPermanentlyDeleteSelected()
+                        onPermanentlyDeleteSelected(selectedNoteIds.toList())
                         selectedNoteIds = emptySet()
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -197,7 +197,7 @@ fun TrashScreen(
                         ActionTooltip("Restore selected") {
                             IconButton(
                                 onClick = {
-                                    onRestoreSelected()
+                                    onRestoreSelected(selectedNoteIds.toList())
                                     selectedNoteIds = emptySet()
                                 },
                                 modifier = Modifier.testTag("restore_selected_button")

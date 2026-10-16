@@ -321,8 +321,10 @@ class MainActivity : FragmentActivity() {
                                                 onRestoreNote = { viewModel.restoreFromTrash(it) },
                                                 onPermanentlyDeleteNote = { viewModel.permanentlyDelete(it) },
                                                 onEmptyTrash = { viewModel.emptyTrash() },
-                                                onRestoreSelected = { viewModel.restoreSelectedTrashNotes() },
-                                                onPermanentlyDeleteSelected = { viewModel.permanentlyDeleteSelectedTrashNotes() },
+                                                onRestoreSelected = { viewModel.restoreSelectedTrashNotes(it) },
+                                                onPermanentlyDeleteSelected = {
+                                                    viewModel.permanentlyDeleteSelectedTrashNotes(it)
+                                                },
                                                 onNoteClick = { note ->
                                                     if (DrawingSerializer.isDrawing(note.content)) {
                                                         viewModel.navigateTo(Screen.Drawing(note.id, Screen.Trash))

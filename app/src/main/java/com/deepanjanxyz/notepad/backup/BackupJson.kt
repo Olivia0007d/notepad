@@ -114,7 +114,12 @@ fun parseBackupJson(text: String): BackupParseResult {
             emptyList()
         } else {
             (0 until tagArray.length())
-                .mapNotNull { index -> tagArray.optString(index).takeIf { it.isNotBlank() } }
+                .map { index -> tagArray.optString(index) }
+                // The name is trimmed and stripped of its # before the cap, the
+                // order every other label goes through, so a long tag is not cut
+                // into a different label and a blank one is dropped.
+                .map { it.trim().replace("#", "").take(30) }
+                .filter { it.isNotBlank() }
         }
         result.add(
             Note(

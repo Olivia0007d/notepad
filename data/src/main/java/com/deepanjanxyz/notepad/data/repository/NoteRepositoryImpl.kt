@@ -62,7 +62,10 @@ class NoteRepositoryImpl(
     /** Adds any of [tags] that the label table does not already hold. */
     private suspend fun registerTags(tags: List<String>) {
         tags.forEach { tag ->
-            val name = tag.trim().replace("#", "")
+            // The same 30-character limit the label editor and the label use cases
+            // apply, so a restored backup cannot introduce a label the editor is
+            // unable to recreate.
+            val name = tag.trim().replace("#", "").take(30)
             if (name.isNotEmpty() && labelDao.getLabelByName(name) == null) {
                 labelDao.insertLabel(LabelEntity(name = name))
             }

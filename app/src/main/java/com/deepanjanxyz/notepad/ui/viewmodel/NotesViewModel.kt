@@ -581,10 +581,14 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun restoreSelectedTrashNotes() {
-        val idsToRestore = _uiState.value.selectedNoteIds.toList()
+    fun restoreSelectedTrashNotes(selectedIds: List<Long>) {
+        val ids = selectedIds.distinct()
+        if (ids.isEmpty()) {
+            clearSelection()
+            return
+        }
         viewModelScope.launch {
-            noteUseCases.restoreNote(idsToRestore)
+            noteUseCases.restoreNote(ids)
             clearSelection()
         }
     }
@@ -630,11 +634,15 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun permanentlyDeleteSelectedTrashNotes() {
-        val idsToDelete = _uiState.value.selectedNoteIds.toList()
+    fun permanentlyDeleteSelectedTrashNotes(selectedIds: List<Long>) {
+        val ids = selectedIds.distinct()
+        if (ids.isEmpty()) {
+            clearSelection()
+            return
+        }
         viewModelScope.launch {
-            noteUseCases.permanentlyDeleteNote(idsToDelete)
-            idsToDelete.forEach { id ->
+            noteUseCases.permanentlyDeleteNote(ids)
+            ids.forEach { id ->
                 NoteReminderScheduler.cancelReminder(getApplication(), id)
             }
             clearSelection()
@@ -678,15 +686,13 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             NoteReminderScheduler.scheduleReminder(
                 context = getApplication(),
                 noteId = saved.id,
-                noteTitle = title,
-                noteContent = content,
                 triggerAtMillis = effectiveReminder
             )
         }
         return saved
     }
 
-    fun setNoteReminder(noteId: Long, reminderTime: Long?, title: String = "", content: String = "") {
+    fun setNoteReminder(noteId: Long, reminderTime: Long?) {
         viewModelScope.launch {
             noteUseCases.setNoteReminder(noteId, reminderTime)
             val context = getApplication<Application>()
@@ -694,8 +700,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 NoteReminderScheduler.scheduleReminder(
                     context = context,
                     noteId = noteId,
-                    noteTitle = title,
-                    noteContent = content,
                     triggerAtMillis = reminderTime
                 )
             } else {
@@ -754,8 +758,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 NoteReminderScheduler.scheduleReminder(
                     context = context,
                     noteId = newId,
-                    noteTitle = note.title,
-                    noteContent = note.content,
                     triggerAtMillis = trigger
                 )
             }

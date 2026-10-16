@@ -29,7 +29,14 @@ object NoteFilter {
             } else {
                 val titleLower = note.title.lowercase(Locale.getDefault())
                 val isDrawing = DrawingSerializer.isDrawing(note.content)
-                val contentLower = if (isDrawing) "" else note.content.lowercase(Locale.getDefault())
+                // A drawing keeps the caption the user typed inside its content,
+                // after the serialized strokes. That text is the user's own and is
+                // searched; the stroke data is not.
+                val contentLower = if (isDrawing) {
+                    DrawingSerializer.extractTextPart(note.content).lowercase(Locale.getDefault())
+                } else {
+                    note.content.lowercase(Locale.getDefault())
+                }
                 val tagsLower = note.tags.map { it.lowercase(Locale.getDefault()) }
 
                 // Check direct substring match first for exact phrase

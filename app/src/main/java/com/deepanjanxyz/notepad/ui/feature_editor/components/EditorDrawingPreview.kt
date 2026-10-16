@@ -55,8 +55,8 @@ fun EmbeddedDrawingCard(
                 if (drawingData.strokes.isNotEmpty()) {
                     var minX = Float.MAX_VALUE
                     var minY = Float.MAX_VALUE
-                    var maxX = Float.MIN_VALUE
-                    var maxY = Float.MIN_VALUE
+                    var maxX = Float.NEGATIVE_INFINITY
+                    var maxY = Float.NEGATIVE_INFINITY
                     drawingData.strokes.forEach { s ->
                         s.points.forEach { pt ->
                             if (pt.x < minX) minX = pt.x

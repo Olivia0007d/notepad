@@ -24,8 +24,6 @@ class NoteReminderWorker(
         const val CHANNEL_ID = "note_reminders_channel"
         const val CHANNEL_NAME = "Note Reminders"
         const val KEY_NOTE_ID = "key_note_id"
-        const val KEY_NOTE_TITLE = "key_note_title"
-        const val KEY_NOTE_CONTENT = "key_note_content"
 
         fun createNotificationChannel(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -62,17 +60,12 @@ class NoteReminderWorker(
         // Create channel on Oreo+
         createNotificationChannel(applicationContext)
 
-        val displayTitle = when {
-            note.title.isNotBlank() -> note.title
-            inputData.getString(KEY_NOTE_TITLE)?.isNotBlank() == true -> inputData.getString(KEY_NOTE_TITLE)!!
-            else -> applicationContext.getString(R.string.app_name)
-        }
+        // The note as it stands now, not as it stood when the reminder was set:
+        // text the user has since removed must not come back in a notification.
+        val displayTitle = note.title.takeIf { it.isNotBlank() }
+            ?: applicationContext.getString(R.string.app_name)
 
-        val rawContent = if (note.content.isNotBlank()) {
-            note.content
-        } else {
-            inputData.getString(KEY_NOTE_CONTENT) ?: ""
-        }
+        val rawContent = note.content
 
         val isDrawing = DrawingSerializer.isDrawing(rawContent)
         val cleanPreview = when {
@@ -110,18 +103,41 @@ class NoteReminderWorker(
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .build()
 
-        try {
-            NotificationManagerCompat.from(applicationContext).notify(noteId.toInt(), notification)
-        } catch (e: SecurityException) {
-            // Permission might have been revoked on Android 13+
+        val manager = NotificationManagerCompat.from(applicationContext)
+        if (!canDeliver(manager)) {
+            // Nothing would be shown, so the reminder is not cleared: it is still
+            // owed to the user, and retrying means it fires once notifications are
+            // allowed again.
+            return Result.retry()
         }
 
-        // Clear reminderTime in the database as it has now fired
+        try {
+            manager.notify(noteId.toInt(), notification)
+        } catch (e: SecurityException) {
+            // The permission was revoked between the check and the post, so again
+            // nothing was shown and the reminder is kept.
+            return Result.retry()
+        }
+
+        // The notification was posted, so the reminder has now fired.
         repository.updateReminderTime(noteId, null)
 
         return Result.success()
+    }
+
+    /**
+     * True when a notification posted now would actually be seen: the app's
+     * notifications are allowed and its channel has not been switched off.
+     *
+     * On Android 13 and above a revoked permission makes notify() a silent no-op
+     * rather than throwing, so this has to be asked before posting, not after.
+     */
+    private fun canDeliver(manager: NotificationManagerCompat): Boolean {
+        if (!manager.areNotificationsEnabled()) return false
+        val channelBlocked = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            manager.getNotificationChannel(CHANNEL_ID)?.importance == NotificationManager.IMPORTANCE_NONE
+        return !channelBlocked
     }
 }
