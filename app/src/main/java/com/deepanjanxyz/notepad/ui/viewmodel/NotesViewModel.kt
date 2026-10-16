@@ -686,15 +686,13 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             NoteReminderScheduler.scheduleReminder(
                 context = getApplication(),
                 noteId = saved.id,
-                noteTitle = title,
-                noteContent = content,
                 triggerAtMillis = effectiveReminder
             )
         }
         return saved
     }
 
-    fun setNoteReminder(noteId: Long, reminderTime: Long?, title: String = "", content: String = "") {
+    fun setNoteReminder(noteId: Long, reminderTime: Long?) {
         viewModelScope.launch {
             noteUseCases.setNoteReminder(noteId, reminderTime)
             val context = getApplication<Application>()
@@ -702,8 +700,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 NoteReminderScheduler.scheduleReminder(
                     context = context,
                     noteId = noteId,
-                    noteTitle = title,
-                    noteContent = content,
                     triggerAtMillis = reminderTime
                 )
             } else {
@@ -762,8 +758,6 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 NoteReminderScheduler.scheduleReminder(
                     context = context,
                     noteId = newId,
-                    noteTitle = note.title,
-                    noteContent = note.content,
                     triggerAtMillis = trigger
                 )
             }

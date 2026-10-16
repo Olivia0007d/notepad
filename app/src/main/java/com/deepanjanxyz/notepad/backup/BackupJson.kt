@@ -114,11 +114,12 @@ fun parseBackupJson(text: String): BackupParseResult {
             emptyList()
         } else {
             (0 until tagArray.length())
-                .mapNotNull { index -> tagArray.optString(index).takeIf { it.isNotBlank() } }
-                // A label is capped at 30 characters everywhere else, so a tag
-                // beyond that is cut here rather than becoming a label the editor
-                // cannot recreate.
-                .map { it.take(30) }
+                .map { index -> tagArray.optString(index) }
+                // The name is trimmed and stripped of its # before the cap, the
+                // order every other label goes through, so a long tag is not cut
+                // into a different label and a blank one is dropped.
+                .map { it.trim().replace("#", "").take(30) }
+                .filter { it.isNotBlank() }
         }
         result.add(
             Note(

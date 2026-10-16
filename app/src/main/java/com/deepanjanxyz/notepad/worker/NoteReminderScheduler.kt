@@ -28,8 +28,6 @@ object NoteReminderScheduler {
     fun scheduleReminder(
         context: Context,
         noteId: Long,
-        noteTitle: String,
-        noteContent: String,
         triggerAtMillis: Long
     ) {
         val delayMillis = triggerAtMillis - System.currentTimeMillis()
@@ -37,8 +35,6 @@ object NoteReminderScheduler {
 
         val inputData = Data.Builder()
             .putLong(NoteReminderWorker.KEY_NOTE_ID, noteId)
-            .putString(NoteReminderWorker.KEY_NOTE_TITLE, noteTitle)
-            .putString(NoteReminderWorker.KEY_NOTE_CONTENT, noteContent)
             .build()
 
         val workRequest = OneTimeWorkRequestBuilder<NoteReminderWorker>()

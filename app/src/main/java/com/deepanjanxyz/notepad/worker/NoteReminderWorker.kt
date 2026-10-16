@@ -24,8 +24,6 @@ class NoteReminderWorker(
         const val CHANNEL_ID = "note_reminders_channel"
         const val CHANNEL_NAME = "Note Reminders"
         const val KEY_NOTE_ID = "key_note_id"
-        const val KEY_NOTE_TITLE = "key_note_title"
-        const val KEY_NOTE_CONTENT = "key_note_content"
 
         fun createNotificationChannel(context: Context) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -62,17 +60,12 @@ class NoteReminderWorker(
         // Create channel on Oreo+
         createNotificationChannel(applicationContext)
 
-        val displayTitle = when {
-            note.title.isNotBlank() -> note.title
-            inputData.getString(KEY_NOTE_TITLE)?.isNotBlank() == true -> inputData.getString(KEY_NOTE_TITLE)!!
-            else -> applicationContext.getString(R.string.app_name)
-        }
+        // The note as it stands now, not as it stood when the reminder was set:
+        // text the user has since removed must not come back in a notification.
+        val displayTitle = note.title.takeIf { it.isNotBlank() }
+            ?: applicationContext.getString(R.string.app_name)
 
-        val rawContent = if (note.content.isNotBlank()) {
-            note.content
-        } else {
-            inputData.getString(KEY_NOTE_CONTENT) ?: ""
-        }
+        val rawContent = note.content
 
         val isDrawing = DrawingSerializer.isDrawing(rawContent)
         val cleanPreview = when {
