@@ -160,6 +160,44 @@ class MainActivity : FragmentActivity() {
             // When the last back press was, so a second one shortly after leaves.
             var lastBackAt by remember { mutableStateOf(0L) }
 
+            // Called unconditionally and before the screens, so it is composed
+            // first and every screen's own handler takes precedence over it. A
+            // conditional call would reorder the handlers on recomposition and
+            // could run this one in place of the editor's save-before-exit.
+            BackHandler {
+                val now = System.currentTimeMillis()
+                when {
+                    drawerState.isOpen -> scope.launch { drawerState.close() }
+                    viewModel.navigateBack() -> Unit
+                    // The history is what back walks, not what it relies on:
+                    // whatever became of it, a press away from the home screen goes
+                    // there rather than leaving the app.
+                    uiState.currentScreen !is Screen.Home -> viewModel.navigateTo(Screen.Home)
+                    now - lastBackAt < EXIT_BACK_WINDOW_MS -> finish()
+                    else -> {
+                        lastBackAt = now
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "Press back again to exit",
+                                actionLabel = "Exit",
+                                duration = SnackbarDuration.Short
+                            )
+                            if (result == SnackbarResult.ActionPerformed) finish()
+                        }
+                    }
+                }
+            }
+
+            // The exit prompt belongs to the screen that raised it. Moving away -
+            // a screen change, or the drawer opening - takes the prompt and its
+            // two-second window with it, so a press elsewhere can never leave the
+            // app on the strength of an earlier one, and the Exit action cannot be
+            // tapped once an edit has begun.
+            LaunchedEffect(uiState.currentScreen, drawerState.isOpen) {
+                lastBackAt = 0L
+                snackbarHostState.currentSnackbarData?.dismiss()
+            }
+
             EliteMemoTheme(themeMode = uiState.themeMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -175,41 +213,6 @@ class MainActivity : FragmentActivity() {
                             showBiometricPrompt()
                         }
                     } else {
-                        // One ladder for the back button and for the swipe in from
-                        // either edge: the drawer closes, then the screens walk back
-                        // one step at a time, and only at the home screen does a
-                        // second press leave the app.
-                        BackHandler {
-                            val now = System.currentTimeMillis()
-                            when {
-                                drawerState.isOpen -> scope.launch { drawerState.close() }
-                                viewModel.navigateBack() -> Unit
-                                now - lastBackAt < EXIT_BACK_WINDOW_MS -> finish()
-                                else -> {
-                                    lastBackAt = now
-                                    scope.launch {
-                                        val result = snackbarHostState.showSnackbar(
-                                            message = "Press back again to exit",
-                                            actionLabel = "Exit",
-                                            duration = SnackbarDuration.Short
-                                        )
-                                        if (result == SnackbarResult.ActionPerformed) finish()
-                                    }
-                                }
-                            }
-                        }
-
-                        // The exit prompt belongs to the screen that raised it. Moving
-                        // away - a screen change, or the drawer opening - takes the
-                        // prompt and its two-second window with it, so a press
-                        // somewhere else can never leave the app on the strength of an
-                        // earlier one, and the Exit action cannot be tapped once an
-                        // edit has begun.
-                        LaunchedEffect(uiState.currentScreen, drawerState.isOpen) {
-                            lastBackAt = 0L
-                            snackbarHostState.currentSnackbarData?.dismiss()
-                        }
-
                         // Navigation Drawer Menu (ModalNavigationDrawer)
                         ModalNavigationDrawer(
                             drawerState = drawerState,
