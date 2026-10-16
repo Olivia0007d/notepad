@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.animation.DecelerateInterpolator
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -42,13 +43,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -72,6 +80,9 @@ import com.deepanjanxyz.notepad.ui.theme.EliteMemoTheme
 import com.deepanjanxyz.notepad.ui.viewmodel.NotesViewModel
 import com.deepanjanxyz.notepad.ui.viewmodel.Screen
 import kotlinx.coroutines.launch
+
+/** How long after the first back press a second one leaves the app. */
+private const val EXIT_BACK_WINDOW_MS = 2000L
 
 class MainActivity : FragmentActivity() {
 
@@ -145,6 +156,9 @@ class MainActivity : FragmentActivity() {
 
             val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
             val scope = rememberCoroutineScope()
+            val snackbarHostState = remember { SnackbarHostState() }
+            // When the last back press was, so a second one shortly after leaves.
+            var lastBackAt by remember { mutableStateOf(0L) }
 
             EliteMemoTheme(themeMode = uiState.themeMode) {
                 Surface(
@@ -161,6 +175,30 @@ class MainActivity : FragmentActivity() {
                             showBiometricPrompt()
                         }
                     } else {
+                        // One ladder for the back button and for the swipe in from
+                        // either edge: the drawer closes, then the screens walk back
+                        // one step at a time, and only at the home screen does a
+                        // second press leave the app.
+                        BackHandler {
+                            val now = System.currentTimeMillis()
+                            when {
+                                drawerState.isOpen -> scope.launch { drawerState.close() }
+                                viewModel.navigateBack() -> Unit
+                                now - lastBackAt < EXIT_BACK_WINDOW_MS -> finish()
+                                else -> {
+                                    lastBackAt = now
+                                    scope.launch {
+                                        val result = snackbarHostState.showSnackbar(
+                                            message = "Press back again to exit",
+                                            actionLabel = "Exit",
+                                            duration = SnackbarDuration.Short
+                                        )
+                                        if (result == SnackbarResult.ActionPerformed) finish()
+                                    }
+                                }
+                            }
+                        }
+
                         // Navigation Drawer Menu (ModalNavigationDrawer)
                         ModalNavigationDrawer(
                             drawerState = drawerState,
@@ -201,7 +239,8 @@ class MainActivity : FragmentActivity() {
                         ) {
                             Scaffold(
                                 modifier = Modifier.fillMaxSize(),
-                                contentWindowInsets = WindowInsets(0, 0, 0, 0)
+                                contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                                snackbarHost = { SnackbarHost(snackbarHostState) }
                             ) { innerPadding ->
                                 AnimatedContent(
                                     targetState = uiState.currentScreen,
