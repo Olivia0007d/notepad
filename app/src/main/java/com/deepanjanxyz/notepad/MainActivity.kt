@@ -160,13 +160,15 @@ class MainActivity : FragmentActivity() {
             // When the last back press was, so a second one shortly after leaves.
             var lastBackAt by remember { mutableStateOf(0L) }
 
-            // Active only on the home screen, which is the one place back can
-            // leave from. Every other screen owns its own back - the editor and
-            // the drawing screen save before they go, archive and trash return
-            // home - so this never runs in their place. `enabled` is the
-            // documented way to scope a handler: calling BackHandler inside an
-            // if would reorder the handlers on recomposition instead.
-            BackHandler(enabled = uiState.currentScreen is Screen.Home) {
+            // Active while the drawer is open, and on the home screen, which is
+            // the one place back can leave from. The drawer comes first: it is
+            // drawn over whichever screen is showing, so a press while it is open
+            // closes it rather than moving the screen underneath it. Every other
+            // screen owns its own back - the editor and the drawing screen save
+            // before they go, archive and trash return home - and `enabled` is the
+            // documented way to scope a handler: calling BackHandler inside an `if`
+            // would reorder the handlers on recomposition instead.
+            BackHandler(enabled = drawerState.isOpen || uiState.currentScreen is Screen.Home) {
                 val now = System.currentTimeMillis()
                 when {
                     drawerState.isOpen -> scope.launch { drawerState.close() }
@@ -268,6 +270,7 @@ class MainActivity : FragmentActivity() {
                                                 onOpenDrawer = {
                                                     scope.launch { drawerState.open() }
                                                 },
+                                                isDrawerOpen = { drawerState.isOpen },
                                                 onSearchQueryChange = { viewModel.onSearchQueryChange(it) },
                                                 onColorFilterChange = { viewModel.onColorFilterChange(it) },
                                                 onTagFilterChange = { viewModel.onTagFilterChange(it) },
@@ -342,6 +345,7 @@ class MainActivity : FragmentActivity() {
                                                 onOpenDrawer = {
                                                     scope.launch { drawerState.open() }
                                                 },
+                                                isDrawerOpen = { drawerState.isOpen },
                                                 onNavigateBack = { viewModel.navigateTo(Screen.Home) },
                                                 onRestoreNote = { viewModel.restoreFromArchive(it) },
                                                 onMoveToTrash = { viewModel.moveToTrash(it) },
@@ -369,6 +373,7 @@ class MainActivity : FragmentActivity() {
                                                 onOpenDrawer = {
                                                     scope.launch { drawerState.open() }
                                                 },
+                                                isDrawerOpen = { drawerState.isOpen },
                                                 onNavigateBack = { viewModel.navigateTo(Screen.Home) },
                                                 onRestoreNote = { viewModel.restoreFromTrash(it) },
                                                 onPermanentlyDeleteNote = { viewModel.permanentlyDelete(it) },
