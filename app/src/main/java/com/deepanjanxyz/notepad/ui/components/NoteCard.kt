@@ -305,8 +305,8 @@ fun NoteCard(
                             if (drawingData.strokes.isNotEmpty()) {
                                 var minX = Float.MAX_VALUE
                                 var minY = Float.MAX_VALUE
-                                var maxX = Float.MIN_VALUE
-                                var maxY = Float.MIN_VALUE
+                                var maxX = Float.NEGATIVE_INFINITY
+                                var maxY = Float.NEGATIVE_INFINITY
                                 for (s in drawingData.strokes) {
                                     for (pt in s.points) {
                                         if (pt.x < minX) minX = pt.x

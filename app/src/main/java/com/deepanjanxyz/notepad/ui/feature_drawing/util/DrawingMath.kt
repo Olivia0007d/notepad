@@ -13,10 +13,13 @@ import kotlin.math.sin
 
 fun getSelectionBounds(strokes: List<DrawingStroke>, selectedIndices: Set<Int>): Rect? {
     if (selectedIndices.isEmpty()) return null
+    // Float.MIN_VALUE is the smallest positive float, not the most negative, so a
+    // point at x <= 0 would never update the maximum and the bounds would collapse
+    // to ~0.
     var minX = Float.MAX_VALUE
     var minY = Float.MAX_VALUE
-    var maxX = Float.MIN_VALUE
-    var maxY = Float.MIN_VALUE
+    var maxX = Float.NEGATIVE_INFINITY
+    var maxY = Float.NEGATIVE_INFINITY
     var count = 0
     for (idx in selectedIndices) {
         val s = strokes.getOrNull(idx) ?: continue

@@ -170,7 +170,6 @@
     <ID>MaxLineLength:HomeScreen.kt:imageVector = if (isAllSelected) Icons.Default.Deselect else Icons.Default.SelectAll</ID>
     <ID>MaxLineLength:HomeScreen.kt:imageVector = if (uiState.searchQuery.isNotBlank()) Icons.Default.Description else Icons.Default.Description</ID>
     <ID>MaxLineLength:MainActivity.kt:MainActivity$onOpenDrawing = { noteId -&gt; viewModel.navigateTo(Screen.Drawing(noteId, screen.returnTo)) }</ID>
-    <ID>MaxLineLength:MainActivity.kt:MainActivity$onPermanentlyDeleteSelected = { viewModel.permanentlyDeleteSelectedTrashNotes() }</ID>
     <ID>MaxLineLength:MainActivity.kt:MainActivity$onSaveNote</ID>
     <ID>MaxLineLength:MainActivity.kt:MainActivity$viewModel.saveNote(id, title, content, colorIndex, tags, isPinned, inArchive).id</ID>
     <ID>MaxLineLength:MainActivity.kt:MainActivity$viewModel.saveNote(id, title, content, colorIndex, tags, isPinned, inArchive, reminderTime).id</ID>

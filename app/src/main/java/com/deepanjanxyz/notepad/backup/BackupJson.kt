@@ -115,6 +115,10 @@ fun parseBackupJson(text: String): BackupParseResult {
         } else {
             (0 until tagArray.length())
                 .mapNotNull { index -> tagArray.optString(index).takeIf { it.isNotBlank() } }
+                // A label is capped at 30 characters everywhere else, so a tag
+                // beyond that is cut here rather than becoming a label the editor
+                // cannot recreate.
+                .map { it.take(30) }
         }
         result.add(
             Note(

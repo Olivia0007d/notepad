@@ -1,0 +1,9 @@
+Five fixes from a sweep through the app.
+
+- Trash: "Restore selected" and "Permanently delete selected" now act on the notes you picked
+- A reminder is no longer cleared when its notification cannot be shown
+- Text typed under a drawing is found by search again
+- Restoring a backup can no longer create a label longer than the editor allows
+- A drawing's selection box and its thumbnails sit correctly when the drawing is past the top or left edge
+
+Thank you for using Elite Memo Pro!

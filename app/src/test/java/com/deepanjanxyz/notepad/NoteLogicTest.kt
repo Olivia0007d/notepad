@@ -282,6 +282,26 @@ class NoteLogicTest {
         // Internal JSON keywords (like "strokes" or "points") should NOT match
         val matchJson = com.deepanjanxyz.notepad.domain.util.NoteFilter.filterNotes(notes, "strokes")
         assertEquals(0, matchJson.size)
+
+        // Text typed under the drawing is the user's own, and must match
+        val withCaption = drawingNote.copy(
+            content = com.deepanjanxyz.notepad.domain.model.DrawingSerializer.combine(
+                drawingContent,
+                "groceries and milk"
+            )
+        )
+        val matchCaption = com.deepanjanxyz.notepad.domain.util.NoteFilter.filterNotes(
+            listOf(withCaption),
+            "groceries"
+        )
+        assertEquals(1, matchCaption.size)
+
+        // ...while the stroke data still must not
+        val captionJson = com.deepanjanxyz.notepad.domain.util.NoteFilter.filterNotes(
+            listOf(withCaption),
+            "strokes"
+        )
+        assertEquals(0, captionJson.size)
     }
 
     @Test

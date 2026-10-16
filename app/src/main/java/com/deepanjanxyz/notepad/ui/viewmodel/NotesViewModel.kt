@@ -581,10 +581,14 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun restoreSelectedTrashNotes() {
-        val idsToRestore = _uiState.value.selectedNoteIds.toList()
+    fun restoreSelectedTrashNotes(selectedIds: List<Long>) {
+        val ids = selectedIds.distinct()
+        if (ids.isEmpty()) {
+            clearSelection()
+            return
+        }
         viewModelScope.launch {
-            noteUseCases.restoreNote(idsToRestore)
+            noteUseCases.restoreNote(ids)
             clearSelection()
         }
     }
@@ -630,11 +634,15 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun permanentlyDeleteSelectedTrashNotes() {
-        val idsToDelete = _uiState.value.selectedNoteIds.toList()
+    fun permanentlyDeleteSelectedTrashNotes(selectedIds: List<Long>) {
+        val ids = selectedIds.distinct()
+        if (ids.isEmpty()) {
+            clearSelection()
+            return
+        }
         viewModelScope.launch {
-            noteUseCases.permanentlyDeleteNote(idsToDelete)
-            idsToDelete.forEach { id ->
+            noteUseCases.permanentlyDeleteNote(ids)
+            ids.forEach { id ->
                 NoteReminderScheduler.cancelReminder(getApplication(), id)
             }
             clearSelection()
