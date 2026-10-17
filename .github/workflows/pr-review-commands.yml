@@ -17,6 +17,12 @@ concurrency:
 jobs:
   gate:
     name: Authorize command
+    # Nothing here can act on a comment that is not on a pull request, so skip
+    # the job for issue comments instead of starting a runner for them. The
+    # parser trims the first line, so do not test for a leading slash here.
+    if: >-
+      github.event.issue.pull_request != null
+      && github.event.comment.user.login != 'github-actions[bot]'
     runs-on: ubuntu-latest
     outputs:
       valid: ${{ steps.parse.outputs.valid }}
