@@ -104,6 +104,7 @@ fun HomeScreen(
     notes: List<Note>,
     allTags: List<String>,
     onOpenDrawer: () -> Unit,
+    isDrawerOpen: () -> Boolean,
     onSearchQueryChange: (String) -> Unit,
     onColorFilterChange: (Int?) -> Unit,
     onTagFilterChange: (String?) -> Unit,
@@ -126,7 +127,9 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    BackHandler(enabled = uiState.isSelectionMode) {
+    // A press while the drawer is open belongs to the drawer, which the activity
+    // closes; this takes it only once the drawer is shut.
+    BackHandler(enabled = uiState.isSelectionMode && !isDrawerOpen()) {
         onClearSelection()
     }
 

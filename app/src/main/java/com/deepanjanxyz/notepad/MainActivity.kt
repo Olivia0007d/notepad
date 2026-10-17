@@ -8,6 +8,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.animation.DecelerateInterpolator
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -42,13 +43,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -72,6 +80,9 @@ import com.deepanjanxyz.notepad.ui.theme.EliteMemoTheme
 import com.deepanjanxyz.notepad.ui.viewmodel.NotesViewModel
 import com.deepanjanxyz.notepad.ui.viewmodel.Screen
 import kotlinx.coroutines.launch
+
+/** How long after the first back press a second one leaves the app. */
+private const val EXIT_BACK_WINDOW_MS = 2000L
 
 class MainActivity : FragmentActivity() {
 
@@ -145,6 +156,46 @@ class MainActivity : FragmentActivity() {
 
             val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
             val scope = rememberCoroutineScope()
+            val snackbarHostState = remember { SnackbarHostState() }
+            // When the last back press was, so a second one shortly after leaves.
+            var lastBackAt by remember { mutableStateOf(0L) }
+
+            // Active while the drawer is open, and on the home screen, which is
+            // the one place back can leave from. The drawer comes first: it is
+            // drawn over whichever screen is showing, so a press while it is open
+            // closes it rather than moving the screen underneath it. Every other
+            // screen owns its own back - the editor and the drawing screen save
+            // before they go, archive and trash return home - and `enabled` is the
+            // documented way to scope a handler: calling BackHandler inside an `if`
+            // would reorder the handlers on recomposition instead.
+            BackHandler(enabled = drawerState.isOpen || uiState.currentScreen is Screen.Home) {
+                val now = System.currentTimeMillis()
+                when {
+                    drawerState.isOpen -> scope.launch { drawerState.close() }
+                    now - lastBackAt < EXIT_BACK_WINDOW_MS -> finish()
+                    else -> {
+                        lastBackAt = now
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "Press back again to exit",
+                                actionLabel = "Exit",
+                                duration = SnackbarDuration.Short
+                            )
+                            if (result == SnackbarResult.ActionPerformed) finish()
+                        }
+                    }
+                }
+            }
+
+            // The exit prompt belongs to the screen that raised it. Moving away -
+            // a screen change, or the drawer opening - takes the prompt and its
+            // two-second window with it, so a press elsewhere can never leave the
+            // app on the strength of an earlier one, and the Exit action cannot be
+            // tapped once an edit has begun.
+            LaunchedEffect(uiState.currentScreen, drawerState.isOpen) {
+                lastBackAt = 0L
+                snackbarHostState.currentSnackbarData?.dismiss()
+            }
 
             EliteMemoTheme(themeMode = uiState.themeMode) {
                 Surface(
@@ -201,7 +252,8 @@ class MainActivity : FragmentActivity() {
                         ) {
                             Scaffold(
                                 modifier = Modifier.fillMaxSize(),
-                                contentWindowInsets = WindowInsets(0, 0, 0, 0)
+                                contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                                snackbarHost = { SnackbarHost(snackbarHostState) }
                             ) { innerPadding ->
                                 AnimatedContent(
                                     targetState = uiState.currentScreen,
@@ -218,6 +270,7 @@ class MainActivity : FragmentActivity() {
                                                 onOpenDrawer = {
                                                     scope.launch { drawerState.open() }
                                                 },
+                                                isDrawerOpen = { drawerState.isOpen },
                                                 onSearchQueryChange = { viewModel.onSearchQueryChange(it) },
                                                 onColorFilterChange = { viewModel.onColorFilterChange(it) },
                                                 onTagFilterChange = { viewModel.onTagFilterChange(it) },
@@ -292,6 +345,8 @@ class MainActivity : FragmentActivity() {
                                                 onOpenDrawer = {
                                                     scope.launch { drawerState.open() }
                                                 },
+                                                isDrawerOpen = { drawerState.isOpen },
+                                                onNavigateBack = { viewModel.navigateTo(Screen.Home) },
                                                 onRestoreNote = { viewModel.restoreFromArchive(it) },
                                                 onMoveToTrash = { viewModel.moveToTrash(it) },
                                                 onRestoreSelected = { selectedIds ->
@@ -318,6 +373,8 @@ class MainActivity : FragmentActivity() {
                                                 onOpenDrawer = {
                                                     scope.launch { drawerState.open() }
                                                 },
+                                                isDrawerOpen = { drawerState.isOpen },
+                                                onNavigateBack = { viewModel.navigateTo(Screen.Home) },
                                                 onRestoreNote = { viewModel.restoreFromTrash(it) },
                                                 onPermanentlyDeleteNote = { viewModel.permanentlyDelete(it) },
                                                 onEmptyTrash = { viewModel.emptyTrash() },
