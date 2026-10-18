@@ -40,7 +40,12 @@ is_shipping() {
 
 # The three-dot form compares against the merge base, so a pull request shows
 # only its own changes even when main has moved on.
-changed=$(git diff --name-only "${base}...${head}" || true)
+if ! changed=$(git diff --name-only "${base}...${head}"); then
+  echo "Could not compute the diff; treating this as a change."
+  echo "code_changed=true" >> "$GITHUB_OUTPUT"
+  exit 0
+fi
+
 echo "Changed files:"
 echo "${changed}"
 echo

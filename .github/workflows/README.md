@@ -7,17 +7,17 @@ single responsibility, so it is easy to see what runs, when, and why.
 
 | Workflow file | Name | Trigger | What it does |
 |---|---|---|---|
-| [`ci.yml`](./ci.yml) | CI | `push` to `dev` and `main`, plus manual | Runs the unit tests and a debug build on a push, then uploads the test reports, so a merged tree is verified after the merge. Pull request checks live in `universal-pr-check.yml`, so the same build and tests are not run twice. |
+| [`ci.yml`](./ci.yml) | CI | `push` to `main`, plus manual | Runs the unit tests and a debug build on a push, then uploads the test reports, so a merged tree is verified after the merge. Pull request checks live in `universal-pr-check.yml`, so the same build and tests are not run twice. |
 | [`mirror.yml`](./mirror.yml) | Multi-Platform Smart Auto Mirroring | `push` of any branch or tag | Materializes every branch locally, then mirrors all branches and tags to GitLab and Codeberg as two separate jobs. It force-syncs only when a normal push is rejected as a divergence (non-fast-forward or an existing tag); any other failure (auth, network, hooks) is reported instead of force-pushing. The run stays green while either host accepts the push and turns red only when both fail, and any failure opens (or comments on) a `bug` issue naming the host that failed; once both hosts are syncing again it closes that issue, and it only ever touches the issue it opened itself. |
 | [`universal-pr-check.yml`](./universal-pr-check.yml) | Universal PR Check | `pull_request` (opened, synchronize, reopened) to `main` and `dev` | Runs the build, unit tests, lint, detekt and a secret scan as parallel jobs on JDK 21, then posts a single status-table comment on the PR and blocks the merge if any check fails. |
 | [`version-guard.yml`](./version-guard.yml) | Version Guard | `pull_request` (opened, ready_for_review, synchronize, reopened) to `main`, plus `workflow_dispatch` | Requires a version bump only when shipping files change (a deep diff check ignores docs, images, comments and whitespace-only edits); otherwise it posts one sticky comment asking for a bump. |
 | [`version-bump.yml`](./version-bump.yml) | Version Bump | `issue_comment` (created) | Turns an authorised `/bump-version` comment on a `main` pull request into a version bump on that branch, then re-fires the guard. Any other comment does nothing. |
-
-`version-guard.yml` and `auto-release.yml` share one `guard` job, which calls
-[`.github/scripts/shipping-changed.sh`](./scripts/shipping-changed.sh).
 | [`auto-release.yml`](./auto-release.yml) | Auto Release | `push` to `main` | On a merge that changes a shipping file, publishes a GitHub release tagged `v<versionName>` with the signed, renamed APKs and traced release notes. |
 | [`store-screenshots.yml`](./store-screenshots.yml) | Store Screenshots | manual (`workflow_dispatch`) | Builds a debug APK and captures the store screenshots on a headless Pixel 6 emulator, then uploads them as artifacts. |
 | [`pr-review-commands.yml`](./pr-review-commands.yml) | PR Review Commands | `issue_comment` (created) | Turns `/review`, `/test`, `/force-review`, `/add-approve-user` and `/remove-approve-user` comments on `main` pull requests into an automated review or an allowlist change, after checking the commenter against `.github/pr-reviewers.yml`. |
+
+`version-guard.yml` and `auto-release.yml` share one `guard` job, which calls
+[`.github/scripts/shipping-changed.sh`](../scripts/shipping-changed.sh).
 
 ## In one line each
 
@@ -222,7 +222,7 @@ on `push` or `pull_request`.
 
 **What it does.**
 
-1. Checks out the app from `dev` and the screenshot automation scripts from the
+1. Checks out the app from `main` and the screenshot automation scripts from the
    `ci/screenshots` branch into `.ci/`.
 2. Builds the debug APK with `./gradlew assembleDebug`.
 3. Boots a headless Pixel 6 emulator (API 34, x86_64, google_apis) with KVM.
@@ -263,6 +263,6 @@ on `push` or `pull_request`.
 - The status bar is normalised with Android demo mode (fixed 12:00 clock, full
   battery, full Wi-Fi and cellular) and animations are disabled for stable,
   consistent captures.
-- The app is always checked out from `dev`; the scripts come from the
+- The app is always checked out from `main`; the scripts come from the
   `ci/screenshots` branch. Re-running the workflow regenerates every screenshot.
 - No repository secrets are required, and a run takes roughly 20 minutes.

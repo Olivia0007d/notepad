@@ -96,6 +96,7 @@ jobs:
         id: bump
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
 
@@ -121,10 +122,21 @@ jobs:
             exit 1
           fi
 
-          max_code="$cur_code"
-          if [ -n "$latest_code" ] && [ "$latest_code" -gt "$max_code" ]; then
-            max_code="$latest_code"
-          fi
+          # Above the current value, the latest release, and any versionCode that
+          # another open pull request already claims: the guard rejects a collision.
+          open_codes=""
+          while read -r num oid; do
+            [ -z "$num" ] && continue
+            [ "$num" = "${PR_NUMBER}" ] && continue
+            code=$(gh api "repos/${GITHUB_REPOSITORY}/contents/app/build.gradle.kts?ref=${oid}" \
+              -H "Accept: application/vnd.github.raw" 2>/dev/null \
+              | grep -oE 'versionCode[[:space:]]*=[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | head -n1 || true)
+            [ -n "$code" ] && open_codes="${open_codes}${code}"$'\n'
+          done <<< "$(gh pr list --repo "${GITHUB_REPOSITORY}" --base main --state open --limit 100 \
+            --json number,headRefOid --jq '.[] | "\(.number) \(.headRefOid)"' 2>/dev/null || true)"
+
+          max_code=$(printf '%s\n%s\n%s\n' "$cur_code" "$latest_code" "$open_codes" \
+            | grep -E '^[0-9]+$' | sort -n | tail -n1)
           next_code=$((max_code + 1))
 
           base_name="$cur_name"
@@ -213,6 +225,7 @@ jobs:
           REASON: ${{ steps.gate.outputs.reason }}
           NEXT_NAME: ${{ steps.bump.outputs.next_name }}
           NEXT_CODE: ${{ steps.bump.outputs.next_code }}
+          BUMPED: ${{ steps.bump.outcome }}
           PUSHED: ${{ steps.push.outcome }}
           USED_TOKEN: ${{ steps.push.outputs.used_token }}
         with:
@@ -223,6 +236,8 @@ jobs:
             let body;
             if (process.env.PROCEED !== 'true') {
               body = `⚠️ I could not bump the version: ${process.env.REASON || 'the request was not valid'}.`;
+            } else if (process.env.BUMPED !== 'success') {
+              body = '⚠️ I could not work out the next version, so nothing changed. See the run for details.';
             } else if (process.env.PUSHED !== 'success') {
               body = [
                 '⚠️ I did not bump the version.',
@@ -242,4 +257,3 @@ jobs:
               ].join('\n');
             }
             await github.rest.issues.createComment({ owner, repo, issue_number, body });
-

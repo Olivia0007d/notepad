@@ -70,12 +70,12 @@ jobs:
           echo "Attempting normal GitLab push..."
 
           if output=$(git push --prune "$GITLAB_URL" "${refspecs[@]}" 2>&1); then
-            printf '%s\n' "$output" | tee -a "$LOG"
+            printf '%s\n' "$output" | sed "s/${GITLAB_TOKEN}/***/g" | tee -a "$LOG"
             echo "GitLab normal push succeeded."
             exit 0
           fi
 
-          printf '%s\n' "$output" | tee -a "$LOG"
+          printf '%s\n' "$output" | sed "s/${GITLAB_TOKEN}/***/g" | tee -a "$LOG"
 
           # Force-push only on a real divergence; never on an auth, network or hook
           # failure, which would otherwise rewrite or delete refs on the mirror.
@@ -87,12 +87,12 @@ jobs:
           echo "GitLab push was rejected as a divergence; force-synchronising the mirror."
 
           if output=$(git push --force --prune "$GITLAB_URL" "${refspecs[@]}" 2>&1); then
-            printf '%s\n' "$output" | tee -a "$LOG"
+            printf '%s\n' "$output" | sed "s/${GITLAB_TOKEN}/***/g" | tee -a "$LOG"
             echo "GitLab force synchronization succeeded."
             exit 0
           fi
 
-          printf '%s\n' "$output" | tee -a "$LOG"
+          printf '%s\n' "$output" | sed "s/${GITLAB_TOKEN}/***/g" | tee -a "$LOG"
           echo "::error::GitLab force synchronization failed. See the log above."
           exit 1
 
@@ -169,12 +169,12 @@ jobs:
           echo "Attempting normal Codeberg push..."
 
           if output=$(git push --prune "$CODEBERG_URL" "${refspecs[@]}" 2>&1); then
-            printf '%s\n' "$output" | tee -a "$LOG"
+            printf '%s\n' "$output" | sed "s/${CODEBERG_TOKEN}/***/g" | tee -a "$LOG"
             echo "Codeberg normal push succeeded."
             exit 0
           fi
 
-          printf '%s\n' "$output" | tee -a "$LOG"
+          printf '%s\n' "$output" | sed "s/${CODEBERG_TOKEN}/***/g" | tee -a "$LOG"
 
           if ! printf '%s\n' "$output" | grep -qiE 'non-fast-forward|fetch first|already exists|\[rejected\]'; then
             echo "::error::Codeberg push failed for a reason other than divergence; refusing to force-push. See the log above."
@@ -184,12 +184,12 @@ jobs:
           echo "Codeberg push was rejected as a divergence; force-synchronising the mirror."
 
           if output=$(git push --force --prune "$CODEBERG_URL" "${refspecs[@]}" 2>&1); then
-            printf '%s\n' "$output" | tee -a "$LOG"
+            printf '%s\n' "$output" | sed "s/${CODEBERG_TOKEN}/***/g" | tee -a "$LOG"
             echo "Codeberg force synchronization succeeded."
             exit 0
           fi
 
-          printf '%s\n' "$output" | tee -a "$LOG"
+          printf '%s\n' "$output" | sed "s/${CODEBERG_TOKEN}/***/g" | tee -a "$LOG"
           echo "::error::Codeberg force synchronization failed. See the log above."
           exit 1
 
