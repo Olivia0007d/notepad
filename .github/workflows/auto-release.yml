@@ -379,6 +379,37 @@ jobs:
             echo '```'
           } >> /tmp/release-notes.md
 
+      - name: List the contributors for this release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          BASE: ${{ steps.context.outputs.base }}
+          TARGET: ${{ steps.context.outputs.target }}
+        run: |
+          set -euo pipefail
+
+          # Everyone who committed since the previous tag, bots left out.
+          logins=$(gh api "repos/${REPO}/compare/${BASE}...${TARGET}" --paginate \
+            --jq '.commits[].author.login' 2>/dev/null \
+            | grep -vE '^null$|\[bot\]$' | sort -u || true)
+
+          {
+            echo ""
+            echo "### Contributors"
+            echo ""
+            if [ -z "$logins" ]; then
+              echo "No contributors to list for this release."
+            else
+              while IFS= read -r login; do
+                [ -n "$login" ] || continue
+                echo "<a href=\"https://github.com/${login}\"><img src=\"https://github.com/${login}.png?size=120\" width=\"80\" height=\"80\" alt=\"${login}\"></a>"
+                echo ""
+                echo "**[${login}](https://github.com/${login})**"
+                echo ""
+              done <<< "$logins"
+            fi
+          } >> /tmp/release-notes.md
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
