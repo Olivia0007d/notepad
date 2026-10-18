@@ -160,19 +160,36 @@ jobs:
           fi
 
           # 3. No other open pull request into main may claim the same versionCode.
+          # A scan that errors must not read as "no collisions", or this pull request
+          # would pass a check it never really satisfied.
+          if ! pr_list=$(gh pr list --repo "${GITHUB_REPOSITORY}" --base main --state open --limit 100 \
+            --json number,headRefOid --jq '.[] | "\(.number) \(.headRefOid)"'); then
+            echo "::error::Could not list the open pull requests to check for versionCode collisions."
+            exit 1
+          fi
+
           collision=""
           while read -r num oid; do
             [ -z "$num" ] && continue
             [ "$num" = "$PR" ] && continue
-            other_code=$(gh api "repos/${GITHUB_REPOSITORY}/contents/app/build.gradle.kts?ref=${oid}" \
-              -H "Accept: application/vnd.github.raw" 2>/dev/null \
+            if ! other=$(gh api --include \
+              "repos/${GITHUB_REPOSITORY}/contents/app/build.gradle.kts?ref=${oid}" \
+              -H "Accept: application/vnd.github.raw"); then
+              status=$(printf '%s\n' "$other" | awk '$1 ~ /^HTTP\/[0-9.]+$/ { print $2; exit }')
+              if [ "$status" = "404" ]; then
+                # This pull request carries no app/build.gradle.kts, so there is nothing to compare.
+                continue
+              fi
+              echo "::error::Could not read app/build.gradle.kts for open pull request #${num}."
+              exit 1
+            fi
+            other_code=$(printf '%s\n' "$other" \
               | grep -oE 'versionCode[[:space:]]*=[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | head -n1 || true)
             if [ -n "$other_code" ] && [ "$other_code" = "$pr_code" ]; then
               collision="$num"
               break
             fi
-          done <<< "$(gh pr list --repo "${GITHUB_REPOSITORY}" --base main --state open --limit 100 \
-            --json number,headRefOid --jq '.[] | "\(.number) \(.headRefOid)"' 2>/dev/null || true)"
+          done <<< "$pr_list"
 
           if [ -n "$collision" ]; then
             echo "versionCode $pr_code collides with open pull request #$collision"
@@ -267,4 +284,3 @@ jobs:
         run: |
           echo "::error::app/build.gradle.kts must set a versionCode and versionName greater than the latest release, with a unique versionCode across open pull requests."
           exit 1
-

@@ -124,16 +124,33 @@ jobs:
 
           # Above the current value, the latest release, and any versionCode that
           # another open pull request already claims: the guard rejects a collision.
+          # A scan that errors must stop the bump, not quietly drop a code, or this
+          # step could pick the very version the guard then refuses.
+          if ! pr_list=$(gh pr list --repo "${GITHUB_REPOSITORY}" --base main --state open --limit 100 \
+            --json number,headRefOid --jq '.[] | "\(.number) \(.headRefOid)"'); then
+            echo "::error::Could not list the open pull requests to check for versionCode collisions."
+            exit 1
+          fi
+
           open_codes=""
           while read -r num oid; do
             [ -z "$num" ] && continue
             [ "$num" = "${PR_NUMBER}" ] && continue
-            code=$(gh api "repos/${GITHUB_REPOSITORY}/contents/app/build.gradle.kts?ref=${oid}" \
-              -H "Accept: application/vnd.github.raw" 2>/dev/null \
+            if ! other=$(gh api --include \
+              "repos/${GITHUB_REPOSITORY}/contents/app/build.gradle.kts?ref=${oid}" \
+              -H "Accept: application/vnd.github.raw"); then
+              status=$(printf '%s\n' "$other" | awk '$1 ~ /^HTTP\/[0-9.]+$/ { print $2; exit }')
+              if [ "$status" = "404" ]; then
+                # This pull request carries no app/build.gradle.kts, so there is nothing to compare.
+                continue
+              fi
+              echo "::error::Could not read app/build.gradle.kts for open pull request #${num}."
+              exit 1
+            fi
+            code=$(printf '%s\n' "$other" \
               | grep -oE 'versionCode[[:space:]]*=[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | head -n1 || true)
             [ -n "$code" ] && open_codes="${open_codes}${code}"$'\n'
-          done <<< "$(gh pr list --repo "${GITHUB_REPOSITORY}" --base main --state open --limit 100 \
-            --json number,headRefOid --jq '.[] | "\(.number) \(.headRefOid)"' 2>/dev/null || true)"
+          done <<< "$pr_list"
 
           max_code=$(printf '%s\n%s\n%s\n' "$cur_code" "$latest_code" "$open_codes" \
             | grep -E '^[0-9]+$' | sort -n | tail -n1)
