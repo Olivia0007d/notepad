@@ -2,9 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [ dev, main ]
-  pull_request:
-    branches: [ dev, main ]
+    branches: [ main ]
+  # Pull request checks live in universal-pr-check.yml; this verifies a push.
   workflow_dispatch:
 
 permissions:

@@ -13,10 +13,10 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout dev
+      - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: dev
+          ref: main
 
       - name: Checkout screenshot scripts
         uses: actions/checkout@v7
