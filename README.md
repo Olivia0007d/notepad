@@ -84,7 +84,6 @@ The app is **local-first**: notes, labels, and settings live in an on-device Roo
 | Background work | WorkManager (note reminders) |
 | Security | AndroidX Biometric (optional app lock) |
 | Async | Kotlin Coroutines and Flow |
-| Remote foundation | Supabase (`gotrue-kt` / `postgrest-kt`) over Ktor |
 | Testing | JUnit 4 |
 
 `compileSdk` / `targetSdk` are **37**, `minSdk` is **24**.

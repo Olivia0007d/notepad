@@ -41,8 +41,5 @@ dependencies {
     implementation("androidx.room:room-ktx:2.8.5")
     ksp("androidx.room:room-compiler:2.8.5")
     implementation("androidx.work:work-runtime-ktx:2.12.0")
-    implementation("io.github.jan-tennert.supabase:auth-kt:3.8.0")
-    implementation("io.github.jan-tennert.supabase:postgrest-kt:3.8.0")
-    implementation("io.ktor:ktor-client-android:3.6.0")
     testImplementation("junit:junit:4.13.2")
 }
