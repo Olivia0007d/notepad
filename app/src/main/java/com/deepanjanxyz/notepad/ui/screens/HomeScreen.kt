@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -257,7 +258,12 @@ fun HomeScreen(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(18.dp),
-                    modifier = Modifier.testTag("fab_add_note")
+                    // The Scaffold zeroes its window insets, so the button has to
+                    // clear the navigation bar itself or the bar covers its lower
+                    // half on three-button navigation.
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .testTag("fab_add_note")
                 ) {
                     Icon(
                         imageVector = Icons.Default.Add,

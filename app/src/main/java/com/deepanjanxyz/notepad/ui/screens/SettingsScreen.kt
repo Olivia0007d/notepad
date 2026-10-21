@@ -129,6 +129,12 @@ fun SettingsScreen(
 
     // Whether the folder holding the backup still has to be handed over.
     var offerFolder by remember { mutableStateOf(false) }
+    // Whether it has been handed over, so the Restore dialog knows whether asking
+    // for it is still the way to see a backup from an earlier installation.
+    var folderGranted by remember { mutableStateOf(false) }
+    // Set when the folder is asked for from the Restore dialog, where the point is
+    // to read the backup already in it rather than to write a new one over it.
+    var grantForRestore by remember { mutableStateOf(false) }
 
     LaunchedEffect(autoBackupStatus, showRestoreDialog) {
         val (info, entries) = withContext(Dispatchers.IO) {
@@ -142,6 +148,7 @@ fun SettingsScreen(
         // name. Handing the folder over is the way out, so it is offered as soon
         // as the app can see that this has happened.
         val granted = withContext(Dispatchers.IO) { DownloadsBackup.hasFolderAccess(context) }
+        folderGranted = granted
         val stuckCopies = withContext(Dispatchers.IO) { DownloadsBackup.needsFolderAccess(context) }
         offerFolder = !granted && (stuckCopies || autoBackupStatus?.error != null)
     }
@@ -152,7 +159,15 @@ fun SettingsScreen(
         scope.launch {
             when {
                 uri == null -> Unit
-                BackupFolder.take(context, uri) -> onBackUpNow(DownloadsBackup.FILE_NAME)
+                BackupFolder.take(context, uri) -> {
+                    // The folder can be read now, so a backup from an earlier
+                    // installation is listed and can be restored without being
+                    // written over first.
+                    folderGranted = true
+                    availableBackups = withContext(Dispatchers.IO) { DownloadsBackup.list(context) }
+                    if (!grantForRestore) onBackUpNow(DownloadsBackup.FILE_NAME)
+                    grantForRestore = false
+                }
                 else -> snackbarHostState.showSnackbar(
                     "The backup folder has to be the EliteMemoPro folder inside Downloads"
                 )
@@ -689,6 +704,31 @@ fun SettingsScreen(
                 Column {
                     if (availableBackups.isEmpty()) {
                         Text("No backups found in " + DownloadsBackup.locationLabel() + ".")
+                        if (!folderGranted) {
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                "A backup may already be there from an earlier installation. " +
+                                    "After a reinstall or a data clear this app can no longer see " +
+                                    "it, or replace it, until the folder is handed over.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = {
+                                    grantForRestore = true
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    folderLauncher.launch(
+                                        BackupFolder.initialUri(BackupFolder.FOLDER_NAME)
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("restore_folder_button")
+                            ) {
+                                Text("Allow access to the backup folder")
+                            }
+                        }
                     } else {
                         availableBackups.forEach { entry ->
                             TextButton(
