@@ -20,7 +20,6 @@ All app data is written to storage that is private to the app:
 
 Notes are not encrypted at rest by the app. They are protected by Android's app sandbox — another app cannot read this app's private storage — and by any device encryption you have enabled.
 
-The app also contains code for an optional, encrypted backend configuration (`EncryptedSetupStore`, DataStore `notepad_setup`, using AES-GCM with a key held in the Android Keystore). That record is written only if the backend setup flow is used; see "Network access and data transmission" below.
 
 ## Network access and data transmission
 
@@ -34,7 +33,7 @@ The permissions actually present in the installed app are:
 - `android.permission.WRITE_EXTERNAL_STORAGE` — capped at `maxSdkVersion="28"`, so it is requested only on Android 9 and below, to write a JSON backup into the public Downloads folder. On Android 10 and later the backup uses MediaStore and needs no runtime permission.
 - `android.permission.ACCESS_NETWORK_STATE` — contributed by a dependency, not requested by the app itself. It allows reading whether a network is available; it does not grant network access.
 
-The repository does contain code that would use the network if it were enabled: a Supabase/PostgREST client, email/password and email-OTP authentication, and a backend-URL reachability check in `SetupRepository`. Nothing in the app constructs or calls that code — the setup dialog that would drive it is defined but never shown — so it is not reachable from the current UI. Even if it were reachable, the missing `INTERNET` permission would prevent it from connecting.
+The app contains no networking code: there is no HTTP client, no remote-backend client, and no authentication flow anywhere in the source or in the shipped APK.
 
 The app can hand a web address to another app: the Settings screen offers "GitHub" and "Issues" links, which are opened through an Android `ACTION_VIEW` intent. In that case the browser — not Elite Memo Pro — fetches the page, under the browser's own privacy policy.
 
