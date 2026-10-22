@@ -132,22 +132,14 @@ class MainActivity : FragmentActivity() {
         splashScreen.setOnExitAnimationListener { provider ->
             val iconView = provider.iconView
             val splashView = provider.view
-            // Not every platform hands back both views - a newer release can
-            // return a splash screen with no icon - so animate only what is
-            // present, and always hand the splash screen back.
-            val animators: List<Animator> = buildList {
-                if (iconView != null) {
-                    add(ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, 1.2f))
-                    add(ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, 1.2f))
-                }
-                if (splashView != null) {
-                    add(ObjectAnimator.ofFloat(splashView, View.ALPHA, 1f, 0f))
-                }
-            }
-            if (animators.isEmpty()) {
-                provider.remove()
-                return@setOnExitAnimationListener
-            }
+            // Both views are non-null, so both are animated: the logo scales up
+            // while the splash fades out, and the splash is handed back when the
+            // three animators finish.
+            val animators: List<Animator> = listOf(
+                ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, 1.2f),
+                ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, 1.2f),
+                ObjectAnimator.ofFloat(splashView, View.ALPHA, 1f, 0f)
+            )
             AnimatorSet().apply {
                 playTogether(animators)
                 duration = SPLASH_ANIMATION_DURATION_MS

@@ -124,7 +124,7 @@ private fun handleSelectionDragStart(
     }
 
     when {
-        handleHit != null && currentBounds != null -> {
+        handleHit != null -> {
             drag.activeHandleIndex.value = handleHit
             drag.initialBounds.value = currentBounds
             drag.initialStrokes.value = selectedIndices().mapNotNull { idx ->

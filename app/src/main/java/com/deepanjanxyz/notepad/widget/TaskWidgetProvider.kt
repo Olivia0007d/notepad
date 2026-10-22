@@ -104,7 +104,7 @@ class TaskWidgetProvider : AppWidgetProvider() {
             for (id in manager.getAppWidgetIds(component)) {
                 manager.updateAppWidget(id, buildViews(context, id))
                 // The rows live in the service, so ask it to reload them.
-                manager.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
+                manager.notifyAppWidgetViewDataChanged(intArrayOf(id), R.id.widget_list)
             }
         }
 
