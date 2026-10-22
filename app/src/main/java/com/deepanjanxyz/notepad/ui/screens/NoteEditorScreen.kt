@@ -88,7 +88,6 @@ fun NoteEditorScreen(
     availableTags: List<String>,
     onGetNote: suspend (Long) -> Note?,
     onSaveNote: suspend (Long, String, String, Int, List<String>, Boolean?, Boolean?, Long?) -> Long,
-    onMoveToTrash: suspend (Long) -> Unit,
     onMoveToArchive: suspend (Long) -> Unit,
     onAddLabel: suspend (String) -> Unit,
     onClearReminder: suspend (Long) -> Unit,

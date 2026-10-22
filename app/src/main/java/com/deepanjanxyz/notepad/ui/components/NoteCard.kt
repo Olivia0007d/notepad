@@ -176,7 +176,6 @@ fun NoteCard(
     isInArchive: Boolean = false,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    onTogglePin: () -> Unit = {},
     onRestore: (() -> Unit)? = null,
     onUnarchive: (() -> Unit)? = null,
     onDeleteForever: (() -> Unit)? = null,

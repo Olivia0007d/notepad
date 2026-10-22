@@ -113,7 +113,6 @@ fun HomeScreen(
     onToggleLayout: () -> Unit,
     onNoteClick: (Note) -> Unit,
     onNoteLongClick: (Note) -> Unit,
-    onTogglePin: (Note) -> Unit,
     onTogglePinSelected: () -> Unit,
     onAddNewNote: () -> Unit,
     onAddNewDrawingNote: () -> Unit = {},
@@ -603,7 +602,6 @@ fun HomeScreen(
                                     }
                                 },
                                 onLongClick = { onNoteLongClick(note) },
-                                onTogglePin = { onTogglePin(note) },
                                 modifier = Modifier.animateItem()
                             )
                         }
@@ -635,7 +633,6 @@ fun HomeScreen(
                                 }
                             },
                             onLongClick = { onNoteLongClick(note) },
-                            onTogglePin = { onTogglePin(note) },
                             modifier = Modifier.animateItem()
                         )
                     }

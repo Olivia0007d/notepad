@@ -230,29 +230,32 @@ object DownloadsBackup {
         }
 
     /** Describes the default backup file, or null when it does not exist. */
-    fun info(context: Context): Info? {
-        if (BackupFolder.hasAccess(context)) {
-            val found = BackupFolder.find(context, FILE_NAME)
-            return found?.let { Info(locationLabel(), it.lastModified) }
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val resolver = context.contentResolver
-            resolver.query(
-                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                arrayOf(MediaStore.MediaColumns.DATE_MODIFIED),
-                selection(),
-                selectionArgs(FILE_NAME),
-                null
-            )?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    // MediaStore stores DATE_MODIFIED in seconds.
-                    return Info(locationLabel(), cursor.getLong(0) * MILLIS_PER_SECOND)
-                }
+    fun info(context: Context): Info? = when {
+        BackupFolder.hasAccess(context) ->
+            BackupFolder.find(context, FILE_NAME)?.let { Info(locationLabel(), it.lastModified) }
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> infoFromMediaStore(context)
+        else -> legacyFile(FILE_NAME)
+            .takeIf { it.exists() }
+            ?.let { Info(locationLabel(), it.lastModified()) }
+    }
+
+    /** Describes the default backup file as the media store reports it. */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun infoFromMediaStore(context: Context): Info? {
+        val resolver = context.contentResolver
+        resolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaStore.MediaColumns.DATE_MODIFIED),
+            selection(),
+            selectionArgs(FILE_NAME),
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                // MediaStore stores DATE_MODIFIED in seconds.
+                return Info(locationLabel(), cursor.getLong(0) * MILLIS_PER_SECOND)
             }
-            return null
         }
-        val file = legacyFile(FILE_NAME)
-        return if (file.exists()) Info(locationLabel(), file.lastModified()) else null
+        return null
     }
 
     /**

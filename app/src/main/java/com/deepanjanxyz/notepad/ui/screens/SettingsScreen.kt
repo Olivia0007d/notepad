@@ -847,8 +847,14 @@ private fun backupStatusText(
     status: AutoBackupStatus?,
     fileCount: Int
 ): String {
-    if (status?.error != null) return "Last backup failed: ${status.error}"
-    val lastModified = info?.lastModified ?: return "No backup saved yet"
-    val stamp = SimpleDateFormat("d MMM yyyy, h:mm a", Locale.getDefault()).format(Date(lastModified))
-    return if (fileCount > 1) "Last backup: $stamp \u00b7 $fileCount files" else "Last backup: $stamp"
+    val lastModified = info?.lastModified
+    return when {
+        status?.error != null -> "Last backup failed: ${status.error}"
+        lastModified == null -> "No backup saved yet"
+        else -> {
+            val stamp = SimpleDateFormat("d MMM yyyy, h:mm a", Locale.getDefault())
+                .format(Date(lastModified))
+            if (fileCount > 1) "Last backup: $stamp \u00b7 $fileCount files" else "Last backup: $stamp"
+        }
+    }
 }

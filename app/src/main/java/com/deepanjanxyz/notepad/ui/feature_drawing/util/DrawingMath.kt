@@ -42,35 +42,39 @@ fun getSelectionBounds(strokes: List<DrawingStroke>, selectedIndices: Set<Int>):
             if (p.y > maxY) maxY = p.y
         }
     }
-    if (count == 0) return null
-    val pad = 12f
-    return Rect(minX - pad, minY - pad, maxX + pad, maxY + pad)
+    return if (count == 0) {
+        null
+    } else {
+        val pad = 12f
+        Rect(minX - pad, minY - pad, maxX + pad, maxY + pad)
+    }
 }
 
 fun isStrokeHit(stroke: DrawingStroke, point: Offset, threshold: Float = 26f): Boolean {
     val r = max(stroke.strokeWidth / 2f + 14f, threshold)
     val rSq = r * r
-    for (i in stroke.points.indices) {
+    return stroke.points.indices.any { i ->
         val p = stroke.points[i]
         val dx = p.x - point.x
         val dy = p.y - point.y
-        if (dx * dx + dy * dy <= rSq) return true
-        if (i > 0) {
-            val pPrev = stroke.points[i - 1]
-            val segDx = p.x - pPrev.x
-            val segDy = p.y - pPrev.y
-            val segLenSq = segDx * segDx + segDy * segDy
-            if (segLenSq > 0f) {
-                val t = (((point.x - pPrev.x) * segDx + (point.y - pPrev.y) * segDy) / segLenSq).coerceIn(0f, 1f)
-                val projX = pPrev.x + t * segDx
-                val projY = pPrev.y + t * segDy
-                val dPx = point.x - projX
-                val dPy = point.y - projY
-                if (dPx * dPx + dPy * dPy <= rSq) return true
-            }
-        }
+        val onPoint = dx * dx + dy * dy <= rSq
+        val onSegment = i > 0 && isWithinSegment(stroke.points[i - 1], p, point, rSq)
+        onPoint || onSegment
     }
-    return false
+}
+
+/** True when [point] lies within [rSq] of the segment that runs from [pPrev] to [p]. */
+private fun isWithinSegment(pPrev: DrawingPoint, p: DrawingPoint, point: Offset, rSq: Float): Boolean {
+    val segDx = p.x - pPrev.x
+    val segDy = p.y - pPrev.y
+    val segLenSq = segDx * segDx + segDy * segDy
+    if (segLenSq <= 0f) return false
+    val t = (((point.x - pPrev.x) * segDx + (point.y - pPrev.y) * segDy) / segLenSq).coerceIn(0f, 1f)
+    val projX = pPrev.x + t * segDx
+    val projY = pPrev.y + t * segDy
+    val dPx = point.x - projX
+    val dPy = point.y - projY
+    return dPx * dPx + dPy * dPy <= rSq
 }
 
 fun isStrokeInRect(stroke: DrawingStroke, rect: Rect): Boolean {

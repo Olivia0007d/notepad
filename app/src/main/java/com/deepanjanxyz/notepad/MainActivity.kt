@@ -208,7 +208,6 @@ class MainActivity : FragmentActivity() {
                     if (uiState.isLocked && uiState.lockEnabled) {
                         LockScreen(
                             onUnlockRequest = { showBiometricPrompt() },
-                            onBypass = { viewModel.unlockApp() }
                         )
 
                         LaunchedEffect(Unit) {
@@ -288,9 +287,6 @@ class MainActivity : FragmentActivity() {
                                                 onNoteLongClick = { note ->
                                                     viewModel.toggleSelection(note.id)
                                                 },
-                                                onTogglePin = { note ->
-                                                    viewModel.togglePin(note.id, note.isPinned)
-                                                },
                                                 onTogglePinSelected = { viewModel.togglePinForSelected() },
                                                 onAddNewNote = {
                                                     viewModel.navigateTo(Screen.Editor(0L))
@@ -322,7 +318,6 @@ class MainActivity : FragmentActivity() {
                                                 },
                                                 onAddLabel = { label -> viewModel.addLabel(label) },
                                                 onMoveToArchive = { id -> viewModel.moveToArchive(id) },
-                                                onMoveToTrash = { id -> viewModel.moveToTrash(id) },
                                                 onClearReminder = { id -> viewModel.setNoteReminder(id, null) },
                                                 onOpenDrawing = { noteId ->
                                                     viewModel.navigateTo(
@@ -365,7 +360,6 @@ class MainActivity : FragmentActivity() {
                                                 isDrawerOpen = { drawerState.isOpen },
                                                 onNavigateBack = { viewModel.navigateTo(Screen.Home) },
                                                 onRestoreNote = { viewModel.restoreFromArchive(it) },
-                                                onMoveToTrash = { viewModel.moveToTrash(it) },
                                                 onRestoreSelected = { selectedIds ->
                                                     viewModel.restoreSelectedArchiveNotes(selectedIds)
                                                 },
@@ -486,7 +480,6 @@ class MainActivity : FragmentActivity() {
 @Composable
 fun LockScreen(
     onUnlockRequest: () -> Unit,
-    onBypass: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(

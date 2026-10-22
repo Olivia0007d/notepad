@@ -70,7 +70,6 @@ fun ArchiveScreen(
     isDrawerOpen: () -> Boolean,
     onNavigateBack: () -> Unit,
     onRestoreNote: (Long) -> Unit,
-    onMoveToTrash: (Long) -> Unit,
     onRestoreSelected: (List<Long>) -> Unit,
     onMoveSelectedToTrash: (List<Long>) -> Unit,
     onUndoMoveToTrash: () -> Unit,
