@@ -139,13 +139,15 @@ object BackupFolder {
             null
         )?.use { cursor ->
             while (cursor.moveToNext()) {
-                val id = cursor.getString(0) ?: continue
-                val name = cursor.getString(1) ?: continue
-                children += Child(
-                    uri = DocumentsContract.buildDocumentUriUsingTree(tree, id),
-                    name = name,
-                    lastModified = cursor.getLong(2)
-                )
+                val id = cursor.getString(0)
+                val name = cursor.getString(1)
+                if (id != null && name != null) {
+                    children += Child(
+                        uri = DocumentsContract.buildDocumentUriUsingTree(tree, id),
+                        name = name,
+                        lastModified = cursor.getLong(2)
+                    )
+                }
             }
         }
         return children

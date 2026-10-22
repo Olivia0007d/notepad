@@ -208,6 +208,7 @@
     <ID>SwallowedException:NoteReminderWorker.kt:NoteReminderWorker$e: SecurityException</ID>
     <ID>TooGenericExceptionCaught:AuthRepositoryImpl.kt:AuthRepositoryImpl$error: Throwable</ID>
     <ID>TooGenericExceptionCaught:SetupRepository.kt:SetupRepository$error: Exception</ID>
+    <ID>TooManyFunctions:BackupFolder.kt:BackupFolder</ID>
     <ID>TooManyFunctions:DownloadsBackup.kt:DownloadsBackup</ID>
     <ID>TooManyFunctions:NoteDao.kt:NoteDao</ID>
     <ID>TooManyFunctions:NoteRepository.kt:NoteRepository</ID>
