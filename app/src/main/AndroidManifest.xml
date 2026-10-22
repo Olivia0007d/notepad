@@ -47,12 +47,10 @@
                 android:resource="@xml/task_widget_info" />
         </receiver>
 
-        <!-- Supplies the widget's scrollable list. The BIND_REMOTEVIEWS
-             permission keeps the service private to the app widget host. -->
-        <service
-            android:name=".widget.TaskWidgetService"
-            android:exported="false"
-            android:permission="android.permission.BIND_REMOTEVIEWS" />
+        <!-- The widget's list is carried by androidx.core:core-remoteviews. Its
+             own manifest declares the service that serves the collection on
+             releases before the platform collections API, with the
+             BIND_REMOTEVIEWS permission that keeps it private to the host. -->
     </application>
 
 </manifest>
