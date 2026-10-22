@@ -39,7 +39,6 @@ import androidx.compose.ui.unit.sp
 import com.deepanjanxyz.notepad.domain.model.ChecklistSegment
 import com.deepanjanxyz.notepad.ui.components.ActionTooltip
 import com.deepanjanxyz.notepad.ui.theme.AppColors
-import androidx.compose.foundation.layout.RowScope
 
 /**
  * Checklist mode for the note editor.

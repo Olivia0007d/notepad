@@ -42,6 +42,7 @@ import com.deepanjanxyz.notepad.domain.model.Note
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.CanvasBackgroundDialog
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingBottomToolbar
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingCanvas
+import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingCanvasCallbacks
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingColorPaletteSheet
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingEraserDrawer
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingTopBar

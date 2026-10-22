@@ -25,7 +25,6 @@ import com.deepanjanxyz.notepad.domain.model.CanvasGridType
 import com.deepanjanxyz.notepad.domain.model.DrawingPoint
 import com.deepanjanxyz.notepad.domain.model.DrawingStroke
 import com.deepanjanxyz.notepad.domain.model.DrawingTool
-import com.deepanjanxyz.notepad.ui.feature_drawing.util.drawCanvasGrid
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.drawDrawingStroke
 import com.deepanjanxyz.notepad.ui.theme.AppColors
 import kotlin.math.hypot
