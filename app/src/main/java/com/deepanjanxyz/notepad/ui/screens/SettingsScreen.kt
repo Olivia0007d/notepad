@@ -157,6 +157,12 @@ fun SettingsScreen(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri ->
         scope.launch {
+            // Read once, as the picker returns, and cleared here rather than in the
+            // success branch: a cancelled or rejected pick would otherwise leave
+            // the Restore intent behind, and the next grant - from the Backup
+            // card, say - would skip the backup it is there to make.
+            val fromRestore = grantForRestore
+            grantForRestore = false
             when {
                 uri == null -> Unit
                 BackupFolder.take(context, uri) -> {
@@ -165,8 +171,7 @@ fun SettingsScreen(
                     // written over first.
                     folderGranted = true
                     availableBackups = withContext(Dispatchers.IO) { DownloadsBackup.list(context) }
-                    if (!grantForRestore) onBackUpNow(DownloadsBackup.FILE_NAME)
-                    grantForRestore = false
+                    if (!fromRestore) onBackUpNow(DownloadsBackup.FILE_NAME)
                 }
                 else -> snackbarHostState.showSnackbar(
                     "The backup folder has to be the EliteMemoPro folder inside Downloads"
