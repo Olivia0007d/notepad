@@ -530,7 +530,8 @@ fun SettingsScreen(
 
                     Text(
                         text = "Backups are saved to " + DownloadsBackup.locationLabel() +
-                            " and stay there even if you clear the app's data, so you can restore your notes afterwards.",
+                            " and stay there even if you clear the app's data, " +
+                                "so you can restore your notes afterwards.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -692,7 +693,8 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Crafted with Kotlin Coroutines, Jetpack Compose Material 3, and Room local persistence.",
+                        text = "Crafted with Kotlin Coroutines, Jetpack Compose Material 3, " +
+                            "and Room local persistence.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

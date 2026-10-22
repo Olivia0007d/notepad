@@ -46,6 +46,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 
+private const val MAX_LABEL_LENGTH = 30
+
+
 @Composable
 fun EditLabelsDialog(
     labels: List<String>,
@@ -78,7 +81,7 @@ fun EditLabelsDialog(
                     OutlinedTextField(
                         value = renameInputText,
                         onValueChange = {
-                            renameInputText = it.take(30)
+                            renameInputText = it.take(MAX_LABEL_LENGTH)
                         },
                         label = { Text("Label Name") },
                         isError = isRenameDuplicate,
@@ -99,7 +102,11 @@ fun EditLabelsDialog(
                                 Text(
                                     text = "${renameInputText.length}/30",
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = if (isRenameDuplicate) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
+                                    color = if (isRenameDuplicate) {
+                                        MaterialTheme.colorScheme.error
+                                    } else {
+                                        MaterialTheme.colorScheme.outline
+                                    }
                                 )
                             }
                         },
@@ -162,7 +169,7 @@ fun EditLabelsDialog(
                 OutlinedTextField(
                     value = newLabelText,
                     onValueChange = {
-                        newLabelText = it.take(30)
+                        newLabelText = it.take(MAX_LABEL_LENGTH)
                     },
                     placeholder = { Text("Create new label") },
                     isError = isDuplicate,
@@ -181,7 +188,11 @@ fun EditLabelsDialog(
                                 Icon(
                                     imageVector = Icons.Default.Add,
                                     contentDescription = "Add label",
-                                    tint = if (newLabelText.isNotBlank() && !isDuplicate) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                                    tint = if (newLabelText.isNotBlank() && !isDuplicate) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.outline
+                                    }
                                 )
                             }
                         }
@@ -203,7 +214,11 @@ fun EditLabelsDialog(
                             Text(
                                 text = "${newLabelText.length}/30",
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (isDuplicate) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline
+                                color = if (isDuplicate) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.outline
+                                }
                             )
                         }
                     },

@@ -29,9 +29,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.deepanjanxyz.notepad.ui.components.ActionTooltip
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 
 fun DrawScope.drawSelectionBoundingBox(b: Rect) {
-    val blueColor = Color(0xFF2196F3)
+    val blueColor = AppColors.Accent
     val handleSizePx = 9.dp.toPx()
     val halfH = handleSizePx / 2f
 
@@ -94,9 +95,9 @@ fun FloatingSelectionBar(
 ) {
     Surface(
         shape = RoundedCornerShape(24.dp),
-        color = Color(0xFF26272E),
+        color = AppColors.SelectionSurface,
         shadowElevation = 8.dp,
-        border = BorderStroke(1.dp, Color(0xFF3E404C)),
+        border = BorderStroke(1.dp, AppColors.SelectionEdge),
         modifier = modifier
     ) {
         Row(
@@ -116,7 +117,7 @@ fun FloatingSelectionBar(
                     Icon(
                         imageVector = Icons.Default.ContentCopy,
                         contentDescription = "Duplicate selected",
-                        tint = Color(0xFF2196F3),
+                        tint = AppColors.Accent,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -129,7 +130,7 @@ fun FloatingSelectionBar(
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Delete selected",
-                        tint = Color(0xFFEF5350),
+                        tint = AppColors.Danger,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -142,7 +143,7 @@ fun FloatingSelectionBar(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Deselect",
-                        tint = Color(0xFF8E9099),
+                        tint = AppColors.TextMuted,
                         modifier = Modifier.size(18.dp)
                     )
                 }

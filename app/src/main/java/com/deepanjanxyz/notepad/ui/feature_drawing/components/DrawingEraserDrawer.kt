@@ -24,7 +24,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.deepanjanxyz.notepad.domain.model.EraserMode
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 import kotlin.math.abs
+
+// The three eraser sizes offered as presets, in pixels.
+private const val ERASER_SMALL_RADIUS_PX = 18f
+private const val ERASER_MEDIUM_RADIUS_PX = 32f
+private const val ERASER_LARGE_RADIUS_PX = 48f
 
 @Composable
 fun DrawingEraserDrawer(
@@ -44,7 +50,7 @@ fun EraserOptionsDrawer(
     onClearCanvas: () -> Unit
 ) {
     Surface(
-        color = Color(0xFF1A1A1E),
+        color = AppColors.Panel,
         contentColor = Color.White,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -61,10 +67,14 @@ fun EraserOptionsDrawer(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Precision (Touch only)
+                val precisionSelected = currentMode == EraserMode.SEGMENT
                 Surface(
                     shape = RoundedCornerShape(18.dp),
-                    color = if (currentMode == EraserMode.SEGMENT) Color(0xFF2196F3) else Color(0xFF2A2A30),
-                    border = BorderStroke(1.dp, if (currentMode == EraserMode.SEGMENT) Color(0xFF64B5F6) else Color(0xFF404048)),
+                    color = if (precisionSelected) AppColors.Accent else AppColors.ControlIdle,
+                    border = BorderStroke(
+                        1.dp,
+                        if (precisionSelected) AppColors.AccentEdge else AppColors.ControlEdge
+                    ),
                     modifier = Modifier
                         .weight(1f)
                         .clickable { onModeSelected(EraserMode.SEGMENT) }
@@ -78,18 +88,22 @@ fun EraserOptionsDrawer(
                             text = "Precision (Touch only)",
                             style = TextStyle(
                                 fontSize = 12.sp,
-                                fontWeight = if (currentMode == EraserMode.SEGMENT) FontWeight.Bold else FontWeight.Medium,
-                                color = if (currentMode == EraserMode.SEGMENT) Color.White else Color(0xFFCCCCCC)
+                                fontWeight = if (precisionSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (precisionSelected) Color.White else AppColors.TextIdle
                             )
                         )
                     }
                 }
 
                 // Whole Stroke
+                val strokeSelected = currentMode == EraserMode.STROKE
                 Surface(
                     shape = RoundedCornerShape(18.dp),
-                    color = if (currentMode == EraserMode.STROKE) Color(0xFF2196F3) else Color(0xFF2A2A30),
-                    border = BorderStroke(1.dp, if (currentMode == EraserMode.STROKE) Color(0xFF64B5F6) else Color(0xFF404048)),
+                    color = if (strokeSelected) AppColors.Accent else AppColors.ControlIdle,
+                    border = BorderStroke(
+                        1.dp,
+                        if (strokeSelected) AppColors.AccentEdge else AppColors.ControlEdge
+                    ),
                     modifier = Modifier
                         .weight(1f)
                         .clickable { onModeSelected(EraserMode.STROKE) }
@@ -103,8 +117,8 @@ fun EraserOptionsDrawer(
                             text = "Stroke (Whole line)",
                             style = TextStyle(
                                 fontSize = 12.sp,
-                                fontWeight = if (currentMode == EraserMode.STROKE) FontWeight.Bold else FontWeight.Medium,
-                                color = if (currentMode == EraserMode.STROKE) Color.White else Color(0xFFCCCCCC)
+                                fontWeight = if (strokeSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (strokeSelected) Color.White else AppColors.TextIdle
                             )
                         )
                     }
@@ -123,15 +137,19 @@ fun EraserOptionsDrawer(
                 ) {
                     Text(
                         text = "Size:",
-                        style = TextStyle(fontSize = 12.sp, color = Color(0xFF9093A0))
+                        style = TextStyle(fontSize = 12.sp, color = AppColors.Label)
                     )
-                    listOf(18f to "S", 32f to "M", 48f to "L").forEach { (rad, label) ->
-                        val isSel = abs(currentRadiusPx - rad) < 5f
+                    listOf(
+                        ERASER_SMALL_RADIUS_PX to "S",
+                        ERASER_MEDIUM_RADIUS_PX to "M",
+                        ERASER_LARGE_RADIUS_PX to "L"
+                    ).forEach { (rad, label) ->
+                        val isSelected = abs(currentRadiusPx - rad) < 5f
                         Box(
                             modifier = Modifier
                                 .size(30.dp)
                                 .clip(CircleShape)
-                                .background(if (isSel) Color(0xFF2196F3) else Color(0xFF2E2E36))
+                                .background(if (isSelected) AppColors.Accent else AppColors.DotIdle)
                                 .clickable { onRadiusChanged(rad) },
                             contentAlignment = Alignment.Center
                         ) {
@@ -146,13 +164,13 @@ fun EraserOptionsDrawer(
                 // Clear Canvas button
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFF352024),
-                    border = BorderStroke(1.dp, Color(0xFFEF5350).copy(alpha = 0.4f)),
+                    color = AppColors.DangerSurface,
+                    border = BorderStroke(1.dp, AppColors.Danger.copy(alpha = 0.4f)),
                     modifier = Modifier.clickable { onClearCanvas() }
                 ) {
                     Text(
                         text = "Clear All",
-                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFEF5350)),
+                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = AppColors.Danger),
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp)
                     )
                 }

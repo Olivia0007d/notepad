@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.deepanjanxyz.notepad.domain.model.DrawingSerializer
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 
 @Composable
 fun EmbeddedDrawingCard(
@@ -118,7 +119,7 @@ fun EmbeddedDrawingCard(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = Color(0x99000000),
+                    color = AppColors.Scrim,
                     modifier = Modifier
                         .size(32.dp)
                         .clickable(onClick = onClick)
@@ -134,7 +135,7 @@ fun EmbeddedDrawingCard(
                 }
                 Surface(
                     shape = CircleShape,
-                    color = Color(0x99000000),
+                    color = AppColors.Scrim,
                     modifier = Modifier
                         .size(32.dp)
                         .clickable(onClick = onDelete)

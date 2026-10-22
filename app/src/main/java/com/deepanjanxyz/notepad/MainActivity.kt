@@ -81,6 +81,9 @@ import com.deepanjanxyz.notepad.ui.viewmodel.NotesViewModel
 import com.deepanjanxyz.notepad.ui.viewmodel.Screen
 import kotlinx.coroutines.launch
 
+private const val SPLASH_ANIMATION_DURATION_MS = 300L
+
+
 /** How long after the first back press a second one leaves the app. */
 private const val EXIT_BACK_WINDOW_MS = 2000L
 
@@ -129,7 +132,7 @@ class MainActivity : FragmentActivity() {
             }
             AnimatorSet().apply {
                 playTogether(animators)
-                duration = 300L
+                duration = SPLASH_ANIMATION_DURATION_MS
                 interpolator = DecelerateInterpolator()
                 addListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
@@ -309,14 +312,23 @@ class MainActivity : FragmentActivity() {
                                                 noteId = screen.noteId,
                                                 availableTags = allTags,
                                                 onGetNote = { id -> viewModel.getNote(id) },
-                                                onSaveNote = { id, title, content, colorIndex, tags, isPinned, inArchive, reminderTime ->
-                                                    viewModel.saveNote(id, title, content, colorIndex, tags, isPinned, inArchive, reminderTime).id
+                                                onSaveNote = {
+                                                    id, title, content, colorIndex, tags, isPinned,
+                                                    inArchive, reminderTime ->
+                                                    viewModel.saveNote(
+                                                        id, title, content, colorIndex, tags, isPinned,
+                                                        inArchive, reminderTime
+                                                    ).id
                                                 },
                                                 onAddLabel = { label -> viewModel.addLabel(label) },
                                                 onMoveToArchive = { id -> viewModel.moveToArchive(id) },
                                                 onMoveToTrash = { id -> viewModel.moveToTrash(id) },
                                                 onClearReminder = { id -> viewModel.setNoteReminder(id, null) },
-                                                onOpenDrawing = { noteId -> viewModel.navigateTo(Screen.Drawing(noteId, screen.returnTo)) },
+                                                onOpenDrawing = { noteId ->
+                                                    viewModel.navigateTo(
+                                                        Screen.Drawing(noteId, screen.returnTo)
+                                                    )
+                                                },
                                                 onNavigateBack = { viewModel.navigateTo(screen.returnTo) }
                                             )
                                         }
@@ -325,8 +337,13 @@ class MainActivity : FragmentActivity() {
                                             DrawingScreen(
                                                 noteId = screen.noteId,
                                                 onGetNote = { id -> viewModel.getNote(id) },
-                                                onSaveNote = { id, title, content, colorIndex, tags, isPinned, inArchive ->
-                                                    viewModel.saveNote(id, title, content, colorIndex, tags, isPinned, inArchive).id
+                                                onSaveNote = {
+                                                    id, title, content, colorIndex, tags, isPinned,
+                                                    inArchive ->
+                                                    viewModel.saveNote(
+                                                        id, title, content, colorIndex, tags,
+                                                        isPinned, inArchive
+                                                    ).id
                                                 },
                                                 onNavigateBack = { savedId ->
                                                     if (savedId > 0L) {

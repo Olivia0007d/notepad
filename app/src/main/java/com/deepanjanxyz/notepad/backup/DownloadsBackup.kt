@@ -12,6 +12,9 @@ import androidx.annotation.RequiresApi
 import java.io.File
 import java.io.IOException
 
+private const val MILLIS_PER_SECOND = 1000L
+
+
 /**
  * Reads and writes the app's backup file in the public Downloads folder.
  *
@@ -243,7 +246,7 @@ object DownloadsBackup {
             )?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     // MediaStore stores DATE_MODIFIED in seconds.
-                    return Info(locationLabel(), cursor.getLong(0) * 1000L)
+                    return Info(locationLabel(), cursor.getLong(0) * MILLIS_PER_SECOND)
                 }
             }
             return null
@@ -285,9 +288,10 @@ object DownloadsBackup {
                 null
             )?.use { cursor ->
                 while (cursor.moveToNext()) {
-                    val name = cursor.getString(0) ?: continue
-                    if (!name.endsWith(BackupFileNames.JSON_SUFFIX)) continue
-                    entries += Entry(name, cursor.getLong(1) * 1000L)
+                    val name = cursor.getString(0)
+                    if (name != null && name.endsWith(BackupFileNames.JSON_SUFFIX)) {
+                        entries += Entry(name, cursor.getLong(1) * MILLIS_PER_SECOND)
+                    }
                 }
             }
             return entries

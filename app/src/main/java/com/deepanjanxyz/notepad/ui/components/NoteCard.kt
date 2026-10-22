@@ -61,6 +61,9 @@ import com.deepanjanxyz.notepad.ui.theme.NoteColorOptions
 import com.deepanjanxyz.notepad.worker.NoteReminderScheduler
 import java.util.Locale
 
+private const val MIN_STROKE_WIDTH = 1.5f
+
+
 /**
  * Vibrant, high-contrast swatches used for search matches. Every keyword in the
  * query is assigned its own colour, so a note that matches several terms stays
@@ -229,7 +232,11 @@ fun NoteCard(
             .testTag("note_card_${note.id}"),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f) else cardColor
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+            } else {
+                cardColor
+            }
         ),
         border = borderStroke,
         elevation = CardDefaults.cardElevation(
@@ -251,7 +258,11 @@ fun NoteCard(
                         text = highlightedTitle,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = if (note.title.isNotBlank()) FontWeight.Bold else FontWeight.Normal,
-                        color = if (note.title.isNotBlank()) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        color = if (note.title.isNotBlank()) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        },
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -261,7 +272,11 @@ fun NoteCard(
                         Icon(
                             imageVector = if (isSelected) Icons.Filled.CheckCircle else Icons.Outlined.Circle,
                             contentDescription = if (isSelected) "Selected" else "Not selected",
-                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            tint = if (isSelected) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.outline
+                            },
                             modifier = Modifier.size(22.dp)
                         )
                     } else if (note.isPinned && !isInTrash) {
@@ -332,7 +347,7 @@ fun NoteCard(
                                     drawDrawingStroke(
                                         stroke.copy(
                                             points = scaledPts,
-                                            strokeWidth = (stroke.strokeWidth * scale).coerceAtLeast(1.5f)
+                                            strokeWidth = (stroke.strokeWidth * scale).coerceAtLeast(MIN_STROKE_WIDTH)
                                         )
                                     )
                                 }
@@ -414,8 +429,19 @@ fun NoteCard(
                     val isPast = reminderTime < System.currentTimeMillis()
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = if (isPast) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f),
-                        border = BorderStroke(1.dp, if (isPast) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)),
+                        color = if (isPast) {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        } else {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+                        },
+                        border = BorderStroke(
+                            1.dp,
+                            if (isPast) {
+                                MaterialTheme.colorScheme.outlineVariant
+                            } else {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
+                            }
+                        ),
                         modifier = Modifier.testTag("note_card_reminder_chip")
                     ) {
                         Row(
@@ -426,14 +452,22 @@ fun NoteCard(
                             Icon(
                                 imageVector = if (isPast) Icons.Default.Alarm else Icons.Default.NotificationsActive,
                                 contentDescription = null,
-                                tint = if (isPast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
+                                tint = if (isPast) {
+                                    MaterialTheme.colorScheme.outline
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
                                 modifier = Modifier.size(12.dp)
                             )
                             Text(
                                 text = NoteReminderScheduler.formatReminderDateTime(reminderTime),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Medium,
-                                color = if (isPast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onPrimaryContainer
+                                color = if (isPast) {
+                                    MaterialTheme.colorScheme.outline
+                                } else {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                }
                             )
                         }
                     }

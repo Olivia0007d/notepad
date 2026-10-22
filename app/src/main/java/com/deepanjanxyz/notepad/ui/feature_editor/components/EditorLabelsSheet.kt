@@ -45,6 +45,10 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.deepanjanxyz.notepad.ui.components.ActionTooltip
+import com.deepanjanxyz.notepad.ui.theme.AppColors
+
+private const val MAX_LABEL_LENGTH = 30
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,9 +59,9 @@ fun EditorLabelsSheet(
     onCreateLabel: (String) -> Unit,
     onDismiss: () -> Unit,
     sheetState: SheetState,
-    textPrimary: Color = Color(0xFFE2E2E6),
-    textPlaceholder: Color = Color(0xFF6E7179),
-    amberAccent: Color = Color(0xFFFFB300),
+    textPrimary: Color = AppColors.TextPrimary,
+    textPlaceholder: Color = AppColors.TextPlaceholder,
+    amberAccent: Color = AppColors.AccentAmber,
     modifier: Modifier = Modifier
 ) {
     var newLabelInput by remember { mutableStateOf("") }
@@ -65,7 +69,7 @@ fun EditorLabelsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color(0xFF1E1E22),
+        containerColor = AppColors.SheetSurface,
         dragHandle = {
             Box(
                 modifier = Modifier
@@ -74,7 +78,7 @@ fun EditorLabelsSheet(
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
-                    color = Color(0xFF757579),
+                    color = AppColors.TextDim,
                     shape = CircleShape,
                     modifier = Modifier.size(width = 36.dp, height = 4.dp)
                 ) {}
@@ -118,7 +122,7 @@ fun EditorLabelsSheet(
                             onCheckedChange = { onToggleLabel(label) },
                             colors = CheckboxDefaults.colors(
                                 checkedColor = amberAccent,
-                                uncheckedColor = Color(0xFF8E9099),
+                                uncheckedColor = AppColors.TextMuted,
                                 checkmarkColor = Color.Black
                             )
                         )
@@ -136,7 +140,8 @@ fun EditorLabelsSheet(
             }
 
             val cleanInput = newLabelInput.trim().replace("#", "")
-            val isDuplicate = cleanInput.isNotBlank() && allUniqueLabels.any { it.equals(cleanInput, ignoreCase = true) }
+            val isDuplicate = cleanInput.isNotBlank() &&
+                allUniqueLabels.any { it.equals(cleanInput, ignoreCase = true) }
 
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -146,7 +151,7 @@ fun EditorLabelsSheet(
             ) {
                 OutlinedTextField(
                     value = newLabelInput,
-                    onValueChange = { newLabelInput = it.take(30) },
+                    onValueChange = { newLabelInput = it.take(MAX_LABEL_LENGTH) },
                     placeholder = { Text("Create new label", color = textPlaceholder) },
                     isError = isDuplicate,
                     supportingText = {
@@ -157,7 +162,7 @@ fun EditorLabelsSheet(
                             if (isDuplicate) {
                                 Text(
                                     text = "Label already exists",
-                                    color = Color(0xFFEF5350),
+                                    color = AppColors.Danger,
                                     style = TextStyle(fontSize = 12.sp)
                                 )
                             } else {
@@ -166,7 +171,7 @@ fun EditorLabelsSheet(
                             Text(
                                 text = "${newLabelInput.length}/30",
                                 style = TextStyle(fontSize = 12.sp),
-                                color = if (isDuplicate) Color(0xFFEF5350) else Color(0xFF9E9E9E)
+                                color = if (isDuplicate) AppColors.Danger else AppColors.TextFaint
                             )
                         }
                     },
@@ -175,8 +180,8 @@ fun EditorLabelsSheet(
                         focusedTextColor = textPrimary,
                         unfocusedTextColor = textPrimary,
                         focusedBorderColor = amberAccent,
-                        unfocusedBorderColor = Color(0xFF48484F),
-                        errorBorderColor = Color(0xFFEF5350),
+                        unfocusedBorderColor = AppColors.InputOutline,
+                        errorBorderColor = AppColors.Danger,
                         errorTextColor = textPrimary
                     ),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -202,7 +207,7 @@ fun EditorLabelsSheet(
                                     Icon(
                                         imageVector = Icons.Default.Add,
                                         contentDescription = "Create label",
-                                        tint = if (!isDuplicate) amberAccent else Color(0xFF757579)
+                                        tint = if (!isDuplicate) amberAccent else AppColors.TextDim
                                     )
                                 }
                             }

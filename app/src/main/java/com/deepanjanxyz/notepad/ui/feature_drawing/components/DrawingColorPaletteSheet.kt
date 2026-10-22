@@ -33,7 +33,15 @@ import androidx.compose.ui.unit.sp
 import com.deepanjanxyz.notepad.domain.model.DrawingTool
 import com.deepanjanxyz.notepad.ui.feature_drawing.model.KeepColorGrid
 import com.deepanjanxyz.notepad.ui.feature_drawing.model.KeepThicknessLevels
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 import kotlin.math.roundToInt
+
+// Base of the hexadecimal colour written into the swatch test tag.
+private const val HEX_RADIX = 16
+// The range the selected stroke thickness is kept inside, in dp.
+private const val THICKNESS_MIN_DP = 2f
+private const val THICKNESS_MAX_DP = 22f
+
 
 @Composable
 fun ColorCircleItem(
@@ -46,7 +54,7 @@ fun ColorCircleItem(
         modifier = Modifier
             .size(40.dp)
             .clickable(onClick = onSelect)
-            .testTag("color_item_${color.toString(16)}"),
+            .testTag("color_item_${color.toString(HEX_RADIX)}"),
         contentAlignment = Alignment.Center
     ) {
         Box(
@@ -55,8 +63,12 @@ fun ColorCircleItem(
                 .clip(CircleShape)
                 .background(Color(color))
                 .border(
-                    width = if (color == 0xFFFFFFFFL) 1.dp else if (isSelected) 2.5.dp else 0.dp,
-                    color = if (color == 0xFFFFFFFFL) Color(0xFF666666) else if (isSelected) Color(0xFF2196F3) else Color.Transparent,
+                    width = if (color == AppColors.OPAQUE_WHITE) 1.dp else if (isSelected) 2.5.dp else 0.dp,
+                    color = when {
+                        color == AppColors.OPAQUE_WHITE -> AppColors.SwatchIdle
+                        isSelected -> AppColors.Accent
+                        else -> Color.Transparent
+                    },
                     shape = CircleShape
                 )
         )
@@ -82,7 +94,7 @@ fun DrawingColorPaletteSheet(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xFF1E1F22))
+            .background(AppColors.SheetSurfaceAlt)
             .padding(vertical = 12.dp, horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -111,7 +123,7 @@ fun DrawingColorPaletteSheet(
                     style = TextStyle(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color(0xFF2196F3)
+                        color = AppColors.Accent
                     ),
                     modifier = Modifier.testTag("pencil_size_label")
                 )
@@ -123,14 +135,14 @@ fun DrawingColorPaletteSheet(
                     .width(60.dp)
                     .height(28.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFF2B2C30)),
+                    .background(AppColors.FieldSurface),
                 contentAlignment = Alignment.Center
             ) {
                 Box(
                     modifier = Modifier
                         .size(
                             width = 44.dp,
-                            height = (selectedThickness.coerceIn(2f, 22f)).dp
+                            height = (selectedThickness.coerceIn(THICKNESS_MIN_DP, THICKNESS_MAX_DP)).dp
                         )
                         .clip(CircleShape)
                         .background(
@@ -154,7 +166,7 @@ fun DrawingColorPaletteSheet(
         ) {
             Text(
                 text = "Size",
-                style = TextStyle(fontSize = 12.sp, color = Color(0xFF9E9E9E)),
+                style = TextStyle(fontSize = 12.sp, color = AppColors.TextFaint),
                 modifier = Modifier.width(32.dp)
             )
             Slider(
@@ -163,9 +175,9 @@ fun DrawingColorPaletteSheet(
                 valueRange = 2f..54f,
                 steps = 25,
                 colors = SliderDefaults.colors(
-                    thumbColor = Color(0xFF2196F3),
-                    activeTrackColor = Color(0xFF2196F3),
-                    inactiveTrackColor = Color(0xFF424248)
+                    thumbColor = AppColors.Accent,
+                    activeTrackColor = AppColors.Accent,
+                    inactiveTrackColor = AppColors.TrackIdle
                 ),
                 modifier = Modifier
                     .weight(1f)
@@ -208,14 +220,14 @@ fun DrawingColorPaletteSheet(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .border(2.dp, Color(0xFF2196F3), CircleShape),
+                                .border(2.dp, AppColors.Accent, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Box(
                                 modifier = Modifier
                                     .size(circleDp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF2196F3))
+                                    .background(AppColors.Accent)
                             )
                         }
                     } else {
@@ -223,7 +235,7 @@ fun DrawingColorPaletteSheet(
                             modifier = Modifier
                                 .size(circleDp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFB0B0B0))
+                                .background(AppColors.DotIdleLight)
                         )
                     }
                 }
@@ -231,7 +243,7 @@ fun DrawingColorPaletteSheet(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-        HorizontalDivider(color = Color(0xFF2C2D31), thickness = 1.dp)
+        HorizontalDivider(color = AppColors.DividerLine, thickness = 1.dp)
         Spacer(modifier = Modifier.height(8.dp))
 
         // 4 rows of 7 colors

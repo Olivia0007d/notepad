@@ -36,6 +36,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
+// How long the view model waits after a change before it saves, in milliseconds.
+private const val AUTO_SAVE_DELAY_MS = 600L
+
+
 sealed interface Screen {
     data object Home : Screen
     data class Editor(val noteId: Long = 0L, val returnTo: Screen = Home) : Screen
@@ -397,7 +401,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 .drop(1) // ignore the initial empty value emitted before the database loads
                 .collectLatest {
                     // Wait for a quiet moment so a burst of changes becomes one write.
-                    delay(600)
+                    delay(AUTO_SAVE_DELAY_MS)
                     writeAutoBackup()
                 }
         }
@@ -801,7 +805,8 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             NoteSortOption.DATE_CREATED ->
                 compareByDescending<Note> { it.isPinned }.thenBy { it.createdAt }.thenBy { it.id }
             NoteSortOption.TITLE_ASC -> compareByDescending<Note> { it.isPinned }.thenBy { it.title.lowercase() }
-            NoteSortOption.TITLE_DESC -> compareByDescending<Note> { it.isPinned }.thenByDescending { it.title.lowercase() }
+            NoteSortOption.TITLE_DESC ->
+                compareByDescending<Note> { it.isPinned }.thenByDescending { it.title.lowercase() }
             NoteSortOption.COLOR -> compareByDescending<Note> { it.isPinned }.thenBy { it.colorIndex }
         }
         return notes.sortedWith(comparator)

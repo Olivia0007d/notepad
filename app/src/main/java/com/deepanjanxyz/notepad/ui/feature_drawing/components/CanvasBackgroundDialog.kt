@@ -30,9 +30,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.deepanjanxyz.notepad.domain.model.CanvasGridType
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 
 val CanvasBackgroundOptions = listOf(
-    0xFFFFFFFFL to "Pure White",
+    AppColors.OPAQUE_WHITE to "Pure White",
     0xFFFDFBF7L to "Warm Ivory",
     0xFFF0F4F8L to "Soft Slate",
     0xFF1E1E22L to "Dark Charcoal",
@@ -49,7 +50,7 @@ fun CanvasBackgroundDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Color(0xFF202124),
+        containerColor = AppColors.DialogSurface,
         title = {
             Text(
                 text = "Canvas Background & Grid",
@@ -60,7 +61,7 @@ fun CanvasBackgroundDialog(
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
                     text = "Background Color",
-                    style = TextStyle(color = Color(0xFFB0B3BD), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    style = TextStyle(color = AppColors.TextHint, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -78,7 +79,7 @@ fun CanvasBackgroundDialog(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Grid Pattern",
-                    style = TextStyle(color = Color(0xFFB0B3BD), fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    style = TextStyle(color = AppColors.TextHint, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -88,7 +89,7 @@ fun CanvasBackgroundDialog(
                         val isSelected = selectedGrid == grid
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = if (isSelected) Color(0xFF2196F3) else Color(0xFF2C2C32),
+                            color = if (isSelected) AppColors.Accent else AppColors.ChipSurface,
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable { onGridSelected(grid) }
@@ -104,7 +105,7 @@ fun CanvasBackgroundDialog(
                                 style = TextStyle(
                                     fontSize = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) Color.White else Color(0xFFCCCCCC),
+                                    color = if (isSelected) Color.White else AppColors.TextIdle,
                                     textAlign = TextAlign.Center
                                 ),
                                 modifier = Modifier.padding(vertical = 10.dp)
@@ -116,7 +117,7 @@ fun CanvasBackgroundDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Done", color = Color(0xFF2196F3), fontWeight = FontWeight.Bold)
+                Text("Done", color = AppColors.Accent, fontWeight = FontWeight.Bold)
             }
         }
     )
@@ -141,7 +142,7 @@ private fun BackgroundOptionCircle(
                 .background(Color(colorVal))
                 .border(
                     width = if (isSelected) 2.5.dp else 1.dp,
-                    color = if (isSelected) Color(0xFF2196F3) else Color(0xFF666666),
+                    color = if (isSelected) AppColors.Accent else AppColors.SwatchIdle,
                     shape = CircleShape
                 )
         )

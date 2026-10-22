@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -26,17 +25,28 @@ import com.deepanjanxyz.notepad.domain.model.CanvasGridType
 import com.deepanjanxyz.notepad.domain.model.DrawingPoint
 import com.deepanjanxyz.notepad.domain.model.DrawingStroke
 import com.deepanjanxyz.notepad.domain.model.DrawingTool
-import com.deepanjanxyz.notepad.domain.model.EraserMode
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.drawDrawingStroke
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.getHandleHit
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.isMoveTargetHit
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.isStrokeHit
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.isStrokeInRect
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.updateBoundsWithHandle
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.sin
+
+// How close a touch has to be to a selection handle before it counts, in pixels.
+private const val HANDLE_HIT_RADIUS_PX = 28f
+// The smallest marquee that counts as a selection, in pixels.
+private const val MARQUEE_MIN_SIZE_PX = 8f
+// The shortest move that counts as drawing rather than a stray touch, in pixels.
+private const val MIN_DRAW_DISTANCE_PX = 1.8f
+// Dash pattern of the marquee outline, in pixels.
+private const val MARQUEE_DASH_LENGTH_PX = 10f
+private const val MARQUEE_DASH_GAP_PX = 6f
+
 
 @Composable
 fun DrawingCanvas(
@@ -45,8 +55,6 @@ fun DrawingCanvas(
     canvasBackgroundColor: Long,
     canvasGridType: CanvasGridType,
     activeTool: DrawingTool,
-    eraserMode: EraserMode,
-    eraserRadiusPx: Float,
     selectedStrokeIndices: Set<Int>,
     selectionBounds: Rect?,
     selectionMarquee: Rect?,
@@ -109,7 +117,7 @@ fun DrawingCanvas(
                                     return@detectDragGestures
                                 }
 
-                                if (isMoveTargetHit(b, startPos, 28f)) {
+                                if (isMoveTargetHit(b, startPos, HANDLE_HIT_RADIUS_PX)) {
                                     isDraggingSelection = true
                                     onPushHistory()
                                     return@detectDragGestures
@@ -178,7 +186,8 @@ fun DrawingCanvas(
                                     onStrokesChange(updated)
                                 } else {
                                     val newB = updateBoundsWithHandle(initB, activeHandleIndex!!, pos)
-                                    if (initB.width > 2f && initB.height > 2f && newB.width > 2f && newB.height > 2f) {
+                                    val hadRoomToResize = initB.width > 2f && initB.height > 2f
+                                    if (hadRoomToResize && newB.width > 2f && newB.height > 2f) {
                                         val scaleX = newB.width / initB.width
                                         val scaleY = newB.height / initB.height
                                         val updated = currentStrokesState.mapIndexed { idx, s ->
@@ -209,7 +218,7 @@ fun DrawingCanvas(
                         },
                         onDragEnd = {
                             selectionMarquee?.let { marquee ->
-                                if (marquee.width > 8f || marquee.height > 8f) {
+                                if (marquee.width > MARQUEE_MIN_SIZE_PX || marquee.height > MARQUEE_MIN_SIZE_PX) {
                                     val matched = currentStrokesState.indices.filter { idx ->
                                         isStrokeInRect(currentStrokesState[idx], marquee)
                                     }.toSet()
@@ -246,9 +255,9 @@ fun DrawingCanvas(
                             val pointerId = down.id
                             while (true) {
                                 val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull { it.id == pointerId } ?: break
-                                if (!change.pressed) {
-                                    change.consume()
+                                val change = event.changes.firstOrNull { it.id == pointerId }
+                                if (change == null || !change.pressed) {
+                                    change?.consume()
                                     break
                                 }
                                 change.consume()
@@ -275,16 +284,20 @@ fun DrawingCanvas(
                             val pointerId = down.id
                             while (true) {
                                 val event = awaitPointerEvent()
-                                val change = event.changes.firstOrNull { it.id == pointerId } ?: break
-                                if (!change.pressed) {
-                                    change.consume()
+                                val change = event.changes.firstOrNull { it.id == pointerId }
+                                if (change == null || !change.pressed) {
+                                    change?.consume()
                                     break
                                 }
                                 change.consume()
                                 val pos = change.position
                                 val lastPt = activeStroke.points.lastOrNull()
-                                if (lastPt == null || hypot(lastPt.x - pos.x, lastPt.y - pos.y) >= 1.8f) {
-                                    activeStroke = activeStroke.copy(points = activeStroke.points + DrawingPoint(pos.x, pos.y))
+                                if (lastPt == null ||
+                                    hypot(lastPt.x - pos.x, lastPt.y - pos.y) >= MIN_DRAW_DISTANCE_PX
+                                ) {
+                                    activeStroke = activeStroke.copy(
+                                        points = activeStroke.points + DrawingPoint(pos.x, pos.y)
+                                    )
                                     onCurrentStrokeChange(activeStroke)
                                 }
                             }
@@ -312,17 +325,17 @@ fun DrawingCanvas(
 
         selectionMarquee?.let { marquee ->
             drawRect(
-                color = Color(0x222196F3),
+                color = AppColors.AccentWash,
                 topLeft = marquee.topLeft,
                 size = marquee.size
             )
             drawRect(
-                color = Color(0xFF2196F3),
+                color = AppColors.Accent,
                 topLeft = marquee.topLeft,
                 size = marquee.size,
                 style = Stroke(
                     width = 1.5.dp.toPx(),
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 6f))
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(MARQUEE_DASH_LENGTH_PX, MARQUEE_DASH_GAP_PX))
                 )
             )
         }

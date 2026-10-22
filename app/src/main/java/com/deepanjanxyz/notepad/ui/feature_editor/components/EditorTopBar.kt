@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.deepanjanxyz.notepad.ui.components.ActionTooltip
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 
 @Composable
 fun EditorTopBar(
@@ -51,8 +52,8 @@ fun EditorTopBar(
     onShare: () -> Unit,
     onSaveAndClose: () -> Unit,
     onNavigateBack: () -> Unit,
-    textPrimary: Color = Color(0xFFE2E2E6),
-    amberAccent: Color = Color(0xFFFFB300),
+    textPrimary: Color = AppColors.TextPrimary,
+    amberAccent: Color = AppColors.AccentAmber,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -102,7 +103,11 @@ fun EditorTopBar(
                     modifier = Modifier.testTag("toggle_reminder_button")
                 ) {
                     Icon(
-                        imageVector = if (hasReminder) Icons.Filled.NotificationsActive else Icons.Outlined.Notifications,
+                        imageVector = if (hasReminder) {
+                            Icons.Filled.NotificationsActive
+                        } else {
+                            Icons.Outlined.Notifications
+                        },
                         contentDescription = if (hasReminder) "Edit reminder" else "Add reminder",
                         tint = if (hasReminder) amberAccent else textPrimary
                     )
@@ -186,7 +191,7 @@ fun EditorTopBar(
                 modifier = Modifier
                     .size(38.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF282419))
+                    .background(AppColors.AmberSurface)
                     .border(1.5.dp, amberAccent, CircleShape)
                     .clickable(onClick = onSaveAndClose)
                     .testTag("save_note_button"),

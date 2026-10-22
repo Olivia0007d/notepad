@@ -126,7 +126,11 @@ fun AppDrawerContent(
                 label = { Text("Notes", fontWeight = FontWeight.Medium) },
                 icon = {
                     Icon(
-                        imageVector = if (currentScreen is Screen.Home && selectedTagFilter == null) Icons.Filled.Description else Icons.Outlined.Description,
+                        imageVector = if (currentScreen is Screen.Home && selectedTagFilter == null) {
+                            Icons.Filled.Description
+                        } else {
+                            Icons.Outlined.Description
+                        },
                         contentDescription = "Notes"
                     )
                 },
@@ -179,7 +183,11 @@ fun AppDrawerContent(
                     label = { Text(label) },
                     icon = {
                         Icon(
-                            imageVector = if (isSelected) Icons.AutoMirrored.Filled.Label else Icons.AutoMirrored.Outlined.Label,
+                            imageVector = if (isSelected) {
+                                Icons.AutoMirrored.Filled.Label
+                            } else {
+                                Icons.AutoMirrored.Outlined.Label
+                            },
                             contentDescription = label,
                             modifier = Modifier.size(20.dp)
                         )
@@ -223,7 +231,11 @@ fun AppDrawerContent(
                 label = { Text("Archive", fontWeight = FontWeight.Medium) },
                 icon = {
                     Icon(
-                        imageVector = if (currentScreen is Screen.Archive) Icons.Filled.Archive else Icons.Outlined.Archive,
+                        imageVector = if (currentScreen is Screen.Archive) {
+                            Icons.Filled.Archive
+                        } else {
+                            Icons.Outlined.Archive
+                        },
                         contentDescription = "Archive"
                     )
                 },
@@ -264,7 +276,11 @@ fun AppDrawerContent(
                 label = { Text("Settings", fontWeight = FontWeight.Medium) },
                 icon = {
                     Icon(
-                        imageVector = if (currentScreen is Screen.Settings) Icons.Filled.Settings else Icons.Outlined.Settings,
+                        imageVector = if (currentScreen is Screen.Settings) {
+                            Icons.Filled.Settings
+                        } else {
+                            Icons.Outlined.Settings
+                        },
                         contentDescription = "Settings"
                     )
                 },

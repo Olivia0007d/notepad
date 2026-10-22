@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.deepanjanxyz.notepad.ui.theme.NoteColorOptions
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +47,7 @@ fun EditorColorPickerSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color(0xFF1E1E22),
+        containerColor = AppColors.SheetSurface,
         dragHandle = {
             Box(
                 modifier = Modifier
@@ -55,7 +56,7 @@ fun EditorColorPickerSheet(
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
-                    color = Color(0xFF757579),
+                    color = AppColors.TextDim,
                     shape = CircleShape,
                     modifier = Modifier.size(width = 36.dp, height = 4.dp)
                 ) {}
@@ -95,7 +96,7 @@ fun EditorColorPickerSheet(
                             .background(color)
                             .border(
                                 width = if (isSelected) 3.dp else 1.dp,
-                                color = if (isSelected) Color(0xFFFFB300) else Color(0xFF42434D),
+                                color = if (isSelected) AppColors.AccentAmber else AppColors.FieldOutline,
                                 shape = CircleShape
                             )
                             .clickable { onColorSelected(index) }
@@ -106,7 +107,7 @@ fun EditorColorPickerSheet(
                             Icon(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = "Selected",
-                                tint = Color(0xFFFFB300),
+                                tint = AppColors.AccentAmber,
                                 modifier = Modifier.size(22.dp)
                             )
                         }

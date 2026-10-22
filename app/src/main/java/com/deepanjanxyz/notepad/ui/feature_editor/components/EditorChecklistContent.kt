@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.deepanjanxyz.notepad.domain.model.ChecklistSegment
 import com.deepanjanxyz.notepad.ui.components.ActionTooltip
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 
 /**
  * Checklist mode for the note editor.
@@ -56,9 +57,9 @@ fun EditorChecklistContent(
     onItemCheckChange: (itemId: String, isChecked: Boolean) -> Unit,
     onItemTextChange: (itemId: String, newText: String) -> Unit,
     onItemDelete: (itemId: String) -> Unit,
-    textPrimary: Color = Color(0xFFE2E2E6),
-    textPlaceholder: Color = Color(0xFF6E7179),
-    amberAccent: Color = Color(0xFFFFB300),
+    textPrimary: Color = AppColors.TextPrimary,
+    textPlaceholder: Color = AppColors.TextPlaceholder,
+    amberAccent: Color = AppColors.AccentAmber,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -106,7 +107,7 @@ fun EditorChecklistContent(
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = null,
-                tint = Color(0xFF8E9099),
+                tint = AppColors.TextMuted,
                 modifier = Modifier.size(22.dp)
             )
             BasicTextField(
@@ -221,7 +222,7 @@ private fun RowScope.ChecklistItemText(
         textStyle = TextStyle(
             fontSize = 18.sp,
             fontWeight = FontWeight.Normal,
-            color = if (isChecked) Color(0xFF6E7179) else textPrimary,
+            color = if (isChecked) AppColors.TextPlaceholder else textPrimary,
             textDecoration = if (isChecked) TextDecoration.LineThrough else TextDecoration.None,
             lineHeight = 24.sp
         ),
@@ -271,7 +272,7 @@ private fun ChecklistCheckboxMark(isChecked: Boolean, amberAccent: Color) {
                 if (isChecked) {
                     Modifier.background(amberAccent)
                 } else {
-                    Modifier.border(1.8.dp, Color(0xFF8E9099), RoundedCornerShape(3.dp))
+                    Modifier.border(1.8.dp, AppColors.TextMuted, RoundedCornerShape(3.dp))
                 }
             ),
         contentAlignment = Alignment.Center
@@ -280,7 +281,7 @@ private fun ChecklistCheckboxMark(isChecked: Boolean, amberAccent: Color) {
             Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = "Completed",
-                tint = Color(0xFF1B1B1F),
+                tint = AppColors.TextOnAmber,
                 modifier = Modifier.size(15.dp)
             )
         }
@@ -309,7 +310,7 @@ private fun ChecklistRemoveButton(
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Remove item",
-                tint = Color(0xFF6E7179),
+                tint = AppColors.TextPlaceholder,
                 modifier = Modifier.size(18.dp)
             )
         }

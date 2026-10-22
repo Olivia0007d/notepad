@@ -133,7 +133,11 @@ fun DrawingTopBar(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Undo,
                     contentDescription = "Undo",
-                    tint = if (canUndo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+                    tint = if (canUndo) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+                    }
                 )
             }
         }
@@ -147,7 +151,11 @@ fun DrawingTopBar(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Redo,
                     contentDescription = "Redo",
-                    tint = if (canRedo) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+                    tint = if (canRedo) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+                    }
                 )
             }
         }

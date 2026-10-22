@@ -156,7 +156,11 @@ fun FloatingSearchBar(
                 ) {
                     Icon(
                         imageVector = if (isGridLayout) Icons.AutoMirrored.Filled.ViewList else Icons.Default.GridView,
-                        contentDescription = if (isGridLayout) "Switch to Single Column List" else "Switch to Grid View",
+                        contentDescription = if (isGridLayout) {
+                            "Switch to Single Column List"
+                        } else {
+                            "Switch to Grid View"
+                        },
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }

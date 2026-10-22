@@ -73,8 +73,13 @@ import com.deepanjanxyz.notepad.ui.feature_editor.components.EditorTopBar
 import com.deepanjanxyz.notepad.ui.feature_editor.components.EmbeddedDrawingCard
 import com.deepanjanxyz.notepad.ui.theme.NoteColorOptions
 import com.deepanjanxyz.notepad.worker.NoteReminderScheduler
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+// How long the editor waits after a change before it saves, in milliseconds.
+private const val AUTO_SAVE_DELAY_MS = 500L
+
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -193,10 +198,14 @@ fun NoteEditorScreen(
     fun getCombinedContent(textPart: String) = DrawingSerializer.combine(drawingPart, textPart)
 
     LaunchedEffect(title, content, drawingPart, colorIndex, tags, isPinned, inArchive, reminderTime, isLoaded) {
-        if (isLoaded && (title.isNotBlank() || content.isNotBlank() || drawingPart.isNotBlank() || tags.isNotEmpty() || reminderTime != null)) {
-            delay(500)
+        val hasSomethingToSave = title.isNotBlank() || content.isNotBlank() ||
+            drawingPart.isNotBlank() || tags.isNotEmpty() || reminderTime != null
+        if (isLoaded && hasSomethingToSave) {
+            delay(AUTO_SAVE_DELAY_MS)
             val combined = getCombinedContent(content)
-            val savedId = onSaveNote(currentNoteId, title, combined, colorIndex, tags, isPinned, inArchive, reminderTime)
+            val savedId = onSaveNote(
+                currentNoteId, title, combined, colorIndex, tags, isPinned, inArchive, reminderTime
+            )
             if (currentNoteId <= 0L && savedId > 0L) {
                 currentNoteId = savedId
             }
@@ -214,10 +223,14 @@ fun NoteEditorScreen(
             }
             effectiveText = serializeChecklistSegments(segments)
         }
-        if (isLoaded && (title.isNotBlank() || effectiveText.isNotBlank() || drawingPart.isNotBlank() || tags.isNotEmpty() || reminderTime != null)) {
+        val hasSomethingToSave = title.isNotBlank() || effectiveText.isNotBlank() ||
+            drawingPart.isNotBlank() || tags.isNotEmpty() || reminderTime != null
+        if (isLoaded && hasSomethingToSave) {
             val combined = getCombinedContent(effectiveText)
             coroutineScope.launch {
-                val savedId = onSaveNote(currentNoteId, title, combined, colorIndex, tags, isPinned, inArchive, reminderTime)
+                val savedId = onSaveNote(
+                    currentNoteId, title, combined, colorIndex, tags, isPinned, inArchive, reminderTime
+                )
                 if (currentNoteId <= 0L && savedId > 0L) {
                     currentNoteId = savedId
                 }
@@ -256,12 +269,12 @@ fun NoteEditorScreen(
     val darkBackground = if (colorIndex in 1 until NoteColorOptions.size) {
         NoteColorOptions[colorIndex]
     } else {
-        Color(0xFF131314)
+        AppColors.PanelDeep
     }
 
-    val amberAccent = Color(0xFFFFB300)
-    val textPrimary = Color(0xFFE2E2E6)
-    val textPlaceholder = Color(0xFF6E7179)
+    val amberAccent = AppColors.AccentAmber
+    val textPrimary = AppColors.TextPrimary
+    val textPlaceholder = AppColors.TextPlaceholder
     val labelPillContainer = Color(0xFF382952)
     val labelPillContent = Color(0xFFD0BCFF)
 
@@ -381,8 +394,19 @@ fun NoteEditorScreen(
                     val isPast = reminderTime!! < System.currentTimeMillis()
                     Surface(
                         shape = RoundedCornerShape(16.dp),
-                        color = if (isPast) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f),
-                        border = BorderStroke(1.dp, if (isPast) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                        color = if (isPast) {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        } else {
+                            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
+                        },
+                        border = BorderStroke(
+                            1.dp,
+                            if (isPast) {
+                                MaterialTheme.colorScheme.outlineVariant
+                            } else {
+                                MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                            }
+                        ),
                         modifier = Modifier
                             .padding(bottom = 12.dp)
                             .clip(RoundedCornerShape(16.dp))
@@ -397,19 +421,31 @@ fun NoteEditorScreen(
                             Icon(
                                 imageVector = Icons.Default.Alarm,
                                 contentDescription = null,
-                                tint = if (isPast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
+                                tint = if (isPast) {
+                                    MaterialTheme.colorScheme.outline
+                                } else {
+                                    MaterialTheme.colorScheme.primary
+                                },
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
                                 text = NoteReminderScheduler.formatReminderDateTime(reminderTime!!),
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold,
-                                color = if (isPast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onPrimaryContainer
+                                color = if (isPast) {
+                                    MaterialTheme.colorScheme.outline
+                                } else {
+                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                }
                             )
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Remove reminder",
-                                tint = if (isPast) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
+                                tint = if (isPast) {
+                                    MaterialTheme.colorScheme.outline
+                                } else {
+                                    MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                },
                                 modifier = Modifier
                                     .size(16.dp)
                                     .clickable {
@@ -549,8 +585,8 @@ fun NoteEditorScreen(
                         if (cleanTag.isNotBlank()) {
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = Color(0xFF2C2C32),
-                                border = BorderStroke(1.dp, Color(0xFF42434D)),
+                                color = AppColors.ChipSurface,
+                                border = BorderStroke(1.dp, AppColors.FieldOutline),
                                 modifier = Modifier
                                     .height(38.dp)
                                     .clip(RoundedCornerShape(20.dp))
@@ -624,7 +660,9 @@ fun NoteEditorScreen(
                         }
                         effectiveContent = serializeChecklistSegments(segments)
                     }
-                    val savedId = onSaveNote(currentNoteId, title, effectiveContent, colorIndex, tags, isPinned, inArchive, newMillis)
+                    val savedId = onSaveNote(
+                        currentNoteId, title, effectiveContent, colorIndex, tags, isPinned, inArchive, newMillis
+                    )
                     if (currentNoteId <= 0L && savedId > 0L) {
                         currentNoteId = savedId
                     }
