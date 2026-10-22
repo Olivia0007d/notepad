@@ -49,7 +49,6 @@ import com.deepanjanxyz.notepad.ui.theme.AppColors
 
 private const val MAX_LABEL_LENGTH = 30
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditorLabelsSheet(
@@ -70,20 +69,7 @@ fun EditorLabelsSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = AppColors.SheetSurface,
-        dragHandle = {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    color = AppColors.TextDim,
-                    shape = CircleShape,
-                    modifier = Modifier.size(width = 36.dp, height = 4.dp)
-                ) {}
-            }
-        }
+        dragHandle = { SheetDragHandle() }
     ) {
         Column(
             modifier = modifier
@@ -102,122 +88,181 @@ fun EditorLabelsSheet(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
             )
 
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 300.dp)
-            ) {
-                items(allUniqueLabels) { label ->
-                    val isChecked = currentTags.any { it.equals(label, ignoreCase = true) }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onToggleLabel(label) }
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                            .testTag("label_item_$label")
-                    ) {
-                        Checkbox(
-                            checked = isChecked,
-                            onCheckedChange = { onToggleLabel(label) },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = amberAccent,
-                                uncheckedColor = AppColors.TextMuted,
-                                checkmarkColor = Color.Black
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = label,
-                            style = TextStyle(
-                                fontSize = 16.sp,
-                                color = textPrimary,
-                                fontWeight = FontWeight.Normal
-                            )
-                        )
-                    }
-                }
-            }
+            LabelCheckList(
+                allUniqueLabels = allUniqueLabels,
+                currentTags = currentTags,
+                textPrimary = textPrimary,
+                amberAccent = amberAccent,
+                onToggleLabel = onToggleLabel
+            )
 
-            val cleanInput = newLabelInput.trim().replace("#", "")
-            val isDuplicate = cleanInput.isNotBlank() &&
-                allUniqueLabels.any { it.equals(cleanInput, ignoreCase = true) }
+            CreateLabelField(
+                newLabelInput = newLabelInput,
+                onInputChange = { newLabelInput = it },
+                allUniqueLabels = allUniqueLabels,
+                textPrimary = textPrimary,
+                textPlaceholder = textPlaceholder,
+                amberAccent = amberAccent,
+                onCreateLabel = onCreateLabel
+            )
+        }
+    }
+}
 
+/** The little grab bar at the top of a bottom sheet. */
+@Composable
+private fun SheetDragHandle() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            color = AppColors.TextDim,
+            shape = CircleShape,
+            modifier = Modifier.size(width = 36.dp, height = 4.dp)
+        ) {}
+    }
+}
+
+/** Every label the user can pick, with a checkbox on each. */
+@Composable
+private fun LabelCheckList(
+    allUniqueLabels: List<String>,
+    currentTags: List<String>,
+    textPrimary: Color,
+    amberAccent: Color,
+    onToggleLabel: (String) -> Unit
+) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 300.dp)
+    ) {
+        items(allUniqueLabels) { label ->
+            val isChecked = currentTags.any { it.equals(label, ignoreCase = true) }
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp)
+                    .clickable { onToggleLabel(label) }
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .testTag("label_item_$label")
             ) {
-                OutlinedTextField(
-                    value = newLabelInput,
-                    onValueChange = { newLabelInput = it.take(MAX_LABEL_LENGTH) },
-                    placeholder = { Text("Create new label", color = textPlaceholder) },
-                    isError = isDuplicate,
-                    supportingText = {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            if (isDuplicate) {
-                                Text(
-                                    text = "Label already exists",
-                                    color = AppColors.Danger,
-                                    style = TextStyle(fontSize = 12.sp)
-                                )
-                            } else {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                            Text(
-                                text = "${newLabelInput.length}/30",
-                                style = TextStyle(fontSize = 12.sp),
-                                color = if (isDuplicate) AppColors.Danger else AppColors.TextFaint
-                            )
-                        }
-                    },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = textPrimary,
-                        unfocusedTextColor = textPrimary,
-                        focusedBorderColor = amberAccent,
-                        unfocusedBorderColor = AppColors.InputOutline,
-                        errorBorderColor = AppColors.Danger,
-                        errorTextColor = textPrimary
-                    ),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = {
-                        if (cleanInput.isNotBlank() && !isDuplicate) {
-                            onCreateLabel(cleanInput)
-                            newLabelInput = ""
-                        }
-                    }),
-                    trailingIcon = {
-                        if (newLabelInput.isNotBlank()) {
-                            ActionTooltip("Create label") {
-                                IconButton(
-                                    onClick = {
-                                        if (cleanInput.isNotBlank() && !isDuplicate) {
-                                            onCreateLabel(cleanInput)
-                                            newLabelInput = ""
-                                        }
-                                    },
-                                    enabled = !isDuplicate,
-                                    modifier = Modifier.testTag("add_new_label_button")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = "Create label",
-                                        tint = if (!isDuplicate) amberAccent else AppColors.TextDim
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("create_label_input")
+                Checkbox(
+                    checked = isChecked,
+                    onCheckedChange = { onToggleLabel(label) },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = amberAccent,
+                        uncheckedColor = AppColors.TextMuted,
+                        checkmarkColor = Color.Black
+                    )
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = label,
+                    style = TextStyle(
+                        fontSize = 16.sp,
+                        color = textPrimary,
+                        fontWeight = FontWeight.Normal
+                    )
                 )
             }
         }
+    }
+}
+
+/** The field a new label is typed into, with its create button. */
+@Composable
+private fun CreateLabelField(
+    newLabelInput: String,
+    onInputChange: (String) -> Unit,
+    allUniqueLabels: List<String>,
+    textPrimary: Color,
+    textPlaceholder: Color,
+    amberAccent: Color,
+    onCreateLabel: (String) -> Unit
+) {
+    val cleanInput = newLabelInput.trim().replace("#", "")
+    val isDuplicate = cleanInput.isNotBlank() &&
+        allUniqueLabels.any { it.equals(cleanInput, ignoreCase = true) }
+    val createIfValid = {
+        if (cleanInput.isNotBlank() && !isDuplicate) {
+            onCreateLabel(cleanInput)
+            onInputChange("")
+        }
+    }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp)
+    ) {
+        OutlinedTextField(
+            value = newLabelInput,
+            onValueChange = { onInputChange(it.take(MAX_LABEL_LENGTH)) },
+            placeholder = { Text("Create new label", color = textPlaceholder) },
+            isError = isDuplicate,
+            supportingText = {
+                LabelSupportingText(newLabelInput = newLabelInput, isDuplicate = isDuplicate)
+            },
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = textPrimary,
+                unfocusedTextColor = textPrimary,
+                focusedBorderColor = amberAccent,
+                unfocusedBorderColor = AppColors.InputOutline,
+                errorBorderColor = AppColors.Danger,
+                errorTextColor = textPrimary
+            ),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(onDone = { createIfValid() }),
+            trailingIcon = {
+                if (newLabelInput.isNotBlank()) {
+                    ActionTooltip("Create label") {
+                        IconButton(
+                            onClick = createIfValid,
+                            enabled = !isDuplicate,
+                            modifier = Modifier.testTag("add_new_label_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Create label",
+                                tint = if (!isDuplicate) amberAccent else AppColors.TextDim
+                            )
+                        }
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("create_label_input")
+        )
+    }
+}
+
+/** The "already exists" note and the character count under the label field. */
+@Composable
+private fun LabelSupportingText(newLabelInput: String, isDuplicate: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        if (isDuplicate) {
+            Text(
+                text = "Label already exists",
+                color = AppColors.Danger,
+                style = TextStyle(fontSize = 12.sp)
+            )
+        } else {
+            Spacer(modifier = Modifier.weight(1f))
+        }
+        Text(
+            text = "${newLabelInput.length}/30",
+            style = TextStyle(fontSize = 12.sp),
+            color = if (isDuplicate) AppColors.Danger else AppColors.TextFaint
+        )
     }
 }
