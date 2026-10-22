@@ -6,16 +6,15 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.widget.RemoteViews
-import androidx.core.widget.RemoteViewsCompat
 import com.deepanjanxyz.notepad.MainActivity
 import com.deepanjanxyz.notepad.R
 import com.deepanjanxyz.notepad.data.NoteRepositoryProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 
 /**
  * Home-screen widget that surfaces the checklist items of every pinned note, so
@@ -25,11 +24,8 @@ import kotlinx.coroutines.runBlocking
  * unpinning removes it, which reuses the gesture users already know instead of
  * adding a second place to manage the same thing.
  *
- * The rows are built from the pinned notes and handed to the list as a remote
- * collection, so however many tasks are pinned the list scrolls instead of being
- * cut off at the widget's edge. [RemoteViewsCompat] is what carries that
- * collection: the platform method for it only exists from Android 12, and this
- * widget is offered from Android 7.
+ * The rows come from [TaskWidgetService], so however many tasks are pinned the
+ * list scrolls instead of being cut off at the widget's edge.
  */
 class TaskWidgetProvider : AppWidgetProvider() {
 
@@ -76,13 +72,6 @@ class TaskWidgetProvider : AppWidgetProvider() {
         private const val REQUEST_CODE_REFRESH = 1
         private const val REQUEST_CODE_OPEN_APP = 0
 
-        /**
-         * Every row shares one layout, so the whole list is a single view type.
-         * The collection has to be told that, or the host rebuilds the adapter
-         * whenever a row it has not seen before arrives.
-         */
-        private const val ROW_VIEW_TYPE_COUNT = 1
-
         private val pendingIntentFlags =
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
 
@@ -112,37 +101,25 @@ class TaskWidgetProvider : AppWidgetProvider() {
         private fun renderAll(context: Context) {
             val manager = AppWidgetManager.getInstance(context)
             val component = ComponentName(context, TaskWidgetProvider::class.java)
-            // The notes are read once for every placed widget: the rows are the
-            // same for all of them, only the widget id differs.
-            val rows = flattenRows(
-                runBlocking { loadTaskGroups(NoteRepositoryProvider.create(context)) }
-            )
             for (id in manager.getAppWidgetIds(component)) {
-                manager.updateAppWidget(id, buildViews(context, id, rows))
+                manager.updateAppWidget(id, buildViews(context, id))
+                // The rows live in the service, so ask it to reload them.
+                manager.notifyAppWidgetViewDataChanged(id, R.id.widget_list)
             }
         }
 
-        private fun buildViews(
-            context: Context,
-            appWidgetId: Int,
-            rows: List<WidgetRow>
-        ): RemoteViews {
+        private fun buildViews(context: Context, appWidgetId: Int): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_tasks)
 
-            val items = RemoteViewsCompat.RemoteCollectionItems.Builder()
-                .setHasStableIds(false)
-                .setViewTypeCount(ROW_VIEW_TYPE_COUNT)
-            rows.forEachIndexed { index, row ->
-                items.addItem(index.toLong(), buildRowViews(context, row))
+            // The adapter is keyed by this intent's data URI, so the id is part
+            // of it - otherwise every placed widget would share one adapter.
+            val serviceIntent = Intent(context, TaskWidgetService::class.java).apply {
+                data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME)).buildUpon()
+                    .appendQueryParameter("widgetId", appWidgetId.toString())
+                    .build()
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
             }
-            RemoteViewsCompat.setRemoteAdapter(
-                context = context,
-                remoteViews = views,
-                appWidgetId = appWidgetId,
-                viewId = R.id.widget_list,
-                items = items.build()
-            )
-
+            views.setRemoteAdapter(R.id.widget_list, serviceIntent)
             views.setEmptyView(R.id.widget_list, R.id.widget_empty)
             // A row inside a collection cannot carry its own PendingIntent, so
             // the list holds the template and each row fills in which item it is.
