@@ -67,7 +67,7 @@ private fun reminderPresets(): List<ReminderPreset> {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun QuickPresetsRow(selectedMillis: Long, onSelect: (Long) -> Unit) {
+internal fun QuickPresetsRow(selectedMillis: Long, onSelect: (Long) -> Unit) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),

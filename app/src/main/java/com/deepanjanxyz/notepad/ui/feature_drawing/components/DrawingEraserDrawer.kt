@@ -139,7 +139,7 @@ private fun EraserSizeRow(currentRadiusPx: Float, onRadiusChanged: (Float) -> Un
     ) {
         Text(
             text = "Size:",
-            style = TextStyle(fontSize = 12.sp, color = AppColors.Label)
+            style = TextStyle(fontSize = 12.sp, color = AppColors.TextLabel)
         )
         listOf(
             ERASER_SMALL_RADIUS_PX to "S",

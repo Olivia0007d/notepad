@@ -59,6 +59,7 @@ fun DrawingCanvas(
     val density = LocalDensity.current
     val stalkLengthPx = with(density) { 24.dp.toPx() }
     val drag = remember { SelectionDragState() }
+    val latestMarquee by rememberUpdatedState(selectionMarquee)
     val inputs = rememberUpdatedState(
         DrawingCanvasInputs(
             strokes = strokes,
@@ -79,7 +80,7 @@ fun DrawingCanvas(
                 selectedColor = selectedColor,
                 drag = drag,
                 stalkLengthPx = stalkLengthPx,
-                marquee = { selectionMarquee },
+                marquee = { latestMarquee },
                 inputs = inputs
             )
             .testTag("drawing_canvas")

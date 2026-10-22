@@ -142,10 +142,6 @@ private fun defaultReminderMillis(currentReminderTime: Long?): Long =
         }.timeInMillis
     }
 
-/** The millis for [dayOffset] days from now, at [hourOfDay] on the hour. */
-.timeInMillis
-
-/** The quick reminder times: later today, tomorrow morning and evening, next week. */
 /** The reminder dialog itself. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
