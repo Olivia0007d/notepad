@@ -170,7 +170,16 @@ fun SettingsScreen(
                     // installation is listed and can be restored without being
                     // written over first.
                     folderGranted = true
-                    availableBackups = withContext(Dispatchers.IO) { DownloadsBackup.list(context) }
+                    offerFolder = false
+                    // The Backup card reads the folder as well, so its state is
+                    // brought up to date here rather than left stale until the
+                    // effect above happens to run again.
+                    val (info, entries) = withContext(Dispatchers.IO) {
+                        DownloadsBackup.info(context) to DownloadsBackup.list(context)
+                    }
+                    backupInfo = info
+                    backupFileCount = entries.size
+                    availableBackups = entries
                     if (!fromRestore) onBackUpNow(DownloadsBackup.FILE_NAME)
                 }
                 else -> snackbarHostState.showSnackbar(
@@ -623,8 +632,15 @@ fun SettingsScreen(
 
                         OutlinedButton(
                             onClick = {
-                                availableBackups = DownloadsBackup.list(context)
-                                showRestoreDialog = true
+                                // Listing the folder reads the file system and the
+                                // media store, so it is kept off the main thread;
+                                // the dialog opens once the list is in hand.
+                                scope.launch {
+                                    availableBackups = withContext(Dispatchers.IO) {
+                                        DownloadsBackup.list(context)
+                                    }
+                                    showRestoreDialog = true
+                                }
                             },
                             modifier = Modifier
                                 .weight(1f)
