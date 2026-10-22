@@ -81,38 +81,7 @@ fun CanvasBackgroundDialog(
                     text = "Grid Pattern",
                     style = TextStyle(color = AppColors.TextHint, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    CanvasGridType.entries.forEach { grid ->
-                        val isSelected = selectedGrid == grid
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isSelected) AppColors.Accent else AppColors.ChipSurface,
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onGridSelected(grid) }
-                                .testTag("grid_option_${grid.name.lowercase()}")
-                        ) {
-                            Text(
-                                text = when (grid) {
-                                    CanvasGridType.NONE -> "Blank"
-                                    CanvasGridType.RULED -> "Ruled"
-                                    CanvasGridType.GRID -> "Grid"
-                                    CanvasGridType.DOTS -> "Dots"
-                                },
-                                style = TextStyle(
-                                    fontSize = 12.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) Color.White else AppColors.TextIdle,
-                                    textAlign = TextAlign.Center
-                                ),
-                                modifier = Modifier.padding(vertical = 10.dp)
-                            )
-                        }
-                    }
-                }
+                GridPatternRow(selectedGrid = selectedGrid, onGridSelected = onGridSelected)
             }
         },
         confirmButton = {
@@ -146,5 +115,44 @@ private fun BackgroundOptionCircle(
                     shape = CircleShape
                 )
         )
+    }
+}
+
+@Composable
+private fun GridPatternRow(
+    selectedGrid: CanvasGridType,
+    onGridSelected: (CanvasGridType) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        CanvasGridType.entries.forEach { grid ->
+            val isSelected = selectedGrid == grid
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (isSelected) AppColors.Accent else AppColors.ChipSurface,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onGridSelected(grid) }
+                    .testTag("grid_option_${grid.name.lowercase()}")
+            ) {
+                Text(
+                    text = when (grid) {
+                        CanvasGridType.NONE -> "Blank"
+                        CanvasGridType.RULED -> "Ruled"
+                        CanvasGridType.GRID -> "Grid"
+                        CanvasGridType.DOTS -> "Dots"
+                    },
+                    style = TextStyle(
+                        fontSize = 12.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isSelected) Color.White else AppColors.TextIdle,
+                        textAlign = TextAlign.Center
+                    ),
+                    modifier = Modifier.padding(vertical = 10.dp)
+                )
+            }
+        }
     }
 }

@@ -103,41 +103,14 @@ fun buildHighlightedText(
             .split("\\s+".toRegex())
             .filter { it.isNotBlank() }
 
-        if (keywords.isEmpty()) {
+        val merged = if (keywords.isEmpty()) {
+            emptyList()
+        } else {
+            mergeOverlappingMatches(findKeywordMatches(text, keywords))
+        }
+
+        if (merged.isEmpty()) {
             return@remember AnnotatedString(text)
-        }
-
-        val lowerText = text.lowercase(Locale.getDefault())
-        // Each match keeps the index of the keyword that produced it, so its
-        // colour follows the keyword rather than its position in the note.
-        val matches = mutableListOf<Triple<Int, Int, Int>>()
-        keywords.forEachIndexed { keywordIndex, keyword ->
-            var startIndex = 0
-            while (startIndex < text.length) {
-                val matchIndex = lowerText.indexOf(keyword, startIndex)
-                if (matchIndex == -1) break
-                matches.add(Triple(matchIndex, matchIndex + keyword.length, keywordIndex))
-                startIndex = matchIndex + 1
-            }
-        }
-
-        if (matches.isEmpty()) {
-            return@remember AnnotatedString(text)
-        }
-
-        matches.sortBy { it.first }
-        // Merge only overlapping matches (for example a repeated short keyword);
-        // the first keyword in the query keeps the colour of the merged span.
-        val merged = mutableListOf<Triple<Int, Int, Int>>()
-        for (match in matches) {
-            val last = merged.lastOrNull()
-            if (last != null && match.first < last.second) {
-                if (match.second > last.second) {
-                    merged[merged.size - 1] = Triple(last.first, match.second, last.third)
-                }
-            } else {
-                merged.add(match)
-            }
         }
 
         buildAnnotatedString {
@@ -540,4 +513,43 @@ fun NoteCard(
             }
         }
     }
+}
+
+/**
+ * Every place each of [keywords] occurs in [text], as (start, end, keyword index)
+ * triples. The keyword index is kept so that a match's colour follows the keyword
+ * rather than its position in the note.
+ */
+private fun findKeywordMatches(text: String, keywords: List<String>): List<Triple<Int, Int, Int>> {
+    val lowerText = text.lowercase(Locale.getDefault())
+    val matches = mutableListOf<Triple<Int, Int, Int>>()
+    keywords.forEachIndexed { keywordIndex, keyword ->
+        var startIndex = 0
+        while (startIndex < text.length) {
+            val matchIndex = lowerText.indexOf(keyword, startIndex)
+            if (matchIndex == -1) break
+            matches.add(Triple(matchIndex, matchIndex + keyword.length, keywordIndex))
+            startIndex = matchIndex + 1
+        }
+    }
+    return matches
+}
+
+/**
+ * Sorts the matches and merges only the overlapping ones (a repeated short
+ * keyword, say); the first keyword keeps the colour of the merged span.
+ */
+private fun mergeOverlappingMatches(matches: List<Triple<Int, Int, Int>>): List<Triple<Int, Int, Int>> {
+    val merged = mutableListOf<Triple<Int, Int, Int>>()
+    for (match in matches.sortedBy { it.first }) {
+        val last = merged.lastOrNull()
+        if (last != null && match.first < last.second) {
+            if (match.second > last.second) {
+                merged[merged.size - 1] = Triple(last.first, match.second, last.third)
+            }
+        } else {
+            merged.add(match)
+        }
+    }
+    return merged
 }

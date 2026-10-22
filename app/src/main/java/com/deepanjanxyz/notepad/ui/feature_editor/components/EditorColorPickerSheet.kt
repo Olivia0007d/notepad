@@ -80,41 +80,52 @@ fun EditorColorPickerSheet(
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
             )
 
-            Row(
+            ColorOptionRow(
+                selectedColorIndex = selectedColorIndex,
+                onColorSelected = onColorSelected
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@Composable
+private fun ColorOptionRow(
+    selectedColorIndex: Int,
+    onColorSelected: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        NoteColorOptions.forEachIndexed { index, color ->
+            val isSelected = selectedColorIndex == index
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(color)
+                    .border(
+                        width = if (isSelected) 3.dp else 1.dp,
+                        color = if (isSelected) AppColors.AccentAmber else AppColors.FieldOutline,
+                        shape = CircleShape
+                    )
+                    .clickable { onColorSelected(index) }
+                    .testTag("color_option_$index"),
+                contentAlignment = Alignment.Center
             ) {
-                NoteColorOptions.forEachIndexed { index, color ->
-                    val isSelected = selectedColorIndex == index
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(color)
-                            .border(
-                                width = if (isSelected) 3.dp else 1.dp,
-                                color = if (isSelected) AppColors.AccentAmber else AppColors.FieldOutline,
-                                shape = CircleShape
-                            )
-                            .clickable { onColorSelected(index) }
-                            .testTag("color_option_$index"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "Selected",
-                                tint = AppColors.AccentAmber,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Selected",
+                        tint = AppColors.AccentAmber,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
