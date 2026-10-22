@@ -76,6 +76,7 @@ import com.deepanjanxyz.notepad.ui.screens.HomeScreen
 import com.deepanjanxyz.notepad.ui.screens.NoteEditorScreen
 import com.deepanjanxyz.notepad.ui.screens.SettingsScreen
 import com.deepanjanxyz.notepad.ui.screens.TrashScreen
+import com.deepanjanxyz.notepad.ui.navigation.AppRoot
 import com.deepanjanxyz.notepad.ui.theme.EliteMemoTheme
 import com.deepanjanxyz.notepad.ui.viewmodel.NotesViewModel
 import com.deepanjanxyz.notepad.ui.viewmodel.Screen
@@ -85,7 +86,7 @@ private const val SPLASH_ANIMATION_DURATION_MS = 300L
 
 
 /** How long after the first back press a second one leaves the app. */
-private const val EXIT_BACK_WINDOW_MS = 2000L
+internal const val EXIT_BACK_WINDOW_MS = 2000L
 
 class MainActivity : FragmentActivity() {
 
@@ -105,12 +106,29 @@ class MainActivity : FragmentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // Install the compat splash screen before super.onCreate so that the
-        // Android 12 splash (with its icon reveal) also shows on Android 11 and
-        // below. It also applies postSplashScreenTheme.
+        installSplashAnimations()
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        handleNotificationIntent(intent)
+
+        setContent {
+            AppRoot(
+                viewModel = viewModel,
+                onShowBiometricPrompt = { showBiometricPrompt() },
+                onExit = { finish() }
+            )
+        }
+    }
+
+    /**
+     * Hands the splash screen over to the app: the logo scales up while the splash
+     * fades out, and the splash view is then removed.
+     *
+     * Called before `super.onCreate` so that the Android 12 splash (with its icon
+     * reveal) also shows on Android 11 and below; it applies postSplashTheme too.
+     */
+    private fun installSplashAnimations() {
         val splashScreen = installSplashScreen()
-        // Hand the splash over to the app smoothly: the logo scales up while the
-        // splash fades out, then the splash view is removed.
         splashScreen.setOnExitAnimationListener { provider ->
             val iconView = provider.iconView
             val splashView = provider.view
@@ -140,305 +158,6 @@ class MainActivity : FragmentActivity() {
                     }
                 })
                 start()
-            }
-        }
-        super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        handleNotificationIntent(intent)
-
-        setContent {
-            val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-            val filteredNotes by viewModel.filteredNotes.collectAsStateWithLifecycle()
-            val rawActiveNotes by viewModel.rawActiveNotes.collectAsStateWithLifecycle()
-            val archiveNotes by viewModel.archiveNotes.collectAsStateWithLifecycle()
-            val trashNotes by viewModel.trashNotes.collectAsStateWithLifecycle()
-            val roomLabels by viewModel.roomLabels.collectAsStateWithLifecycle()
-            val allTags by viewModel.allTags.collectAsStateWithLifecycle()
-            val autoBackupStatus by viewModel.autoBackupStatus.collectAsStateWithLifecycle()
-            val importOutcome by viewModel.importOutcome.collectAsStateWithLifecycle()
-
-            val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-            val scope = rememberCoroutineScope()
-            val snackbarHostState = remember { SnackbarHostState() }
-            // When the last back press was, so a second one shortly after leaves.
-            var lastBackAt by remember { mutableStateOf(0L) }
-
-            // Active while the drawer is open, and on the home screen, which is
-            // the one place back can leave from. The drawer comes first: it is
-            // drawn over whichever screen is showing, so a press while it is open
-            // closes it rather than moving the screen underneath it. Every other
-            // screen owns its own back - the editor and the drawing screen save
-            // before they go, archive and trash return home - and `enabled` is the
-            // documented way to scope a handler: calling BackHandler inside an `if`
-            // would reorder the handlers on recomposition instead.
-            BackHandler(enabled = drawerState.isOpen || uiState.currentScreen is Screen.Home) {
-                val now = System.currentTimeMillis()
-                when {
-                    drawerState.isOpen -> scope.launch { drawerState.close() }
-                    now - lastBackAt < EXIT_BACK_WINDOW_MS -> finish()
-                    else -> {
-                        lastBackAt = now
-                        scope.launch {
-                            val result = snackbarHostState.showSnackbar(
-                                message = "Press back again to exit",
-                                actionLabel = "Exit",
-                                duration = SnackbarDuration.Short
-                            )
-                            if (result == SnackbarResult.ActionPerformed) finish()
-                        }
-                    }
-                }
-            }
-
-            // The exit prompt belongs to the screen that raised it. Moving away -
-            // a screen change, or the drawer opening - takes the prompt and its
-            // two-second window with it, so a press elsewhere can never leave the
-            // app on the strength of an earlier one, and the Exit action cannot be
-            // tapped once an edit has begun.
-            LaunchedEffect(uiState.currentScreen, drawerState.isOpen) {
-                lastBackAt = 0L
-                snackbarHostState.currentSnackbarData?.dismiss()
-            }
-
-            EliteMemoTheme(themeMode = uiState.themeMode) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    if (uiState.isLocked && uiState.lockEnabled) {
-                        LockScreen(
-                            onUnlockRequest = { showBiometricPrompt() },
-                        )
-
-                        LaunchedEffect(Unit) {
-                            showBiometricPrompt()
-                        }
-                    } else {
-                        // Navigation Drawer Menu (ModalNavigationDrawer)
-                        ModalNavigationDrawer(
-                            drawerState = drawerState,
-                            gesturesEnabled = uiState.currentScreen !is Screen.Editor && !uiState.isSelectionMode,
-                            drawerContent = {
-                                AppDrawerContent(
-                                    currentScreen = uiState.currentScreen,
-                                    selectedTagFilter = uiState.selectedTagFilter,
-                                    labels = roomLabels,
-                                    onSelectNotes = {
-                                        viewModel.onTagFilterChange(null)
-                                        viewModel.navigateTo(Screen.Home)
-                                        scope.launch { drawerState.close() }
-                                    },
-                                    onSelectTag = { tag ->
-                                        viewModel.onTagFilterChange(tag)
-                                        viewModel.navigateTo(Screen.Home)
-                                        scope.launch { drawerState.close() }
-                                    },
-                                    onOpenEditLabels = {
-                                        viewModel.setEditLabelsDialogVisible(true)
-                                        scope.launch { drawerState.close() }
-                                    },
-                                    onSelectArchive = {
-                                        viewModel.navigateTo(Screen.Archive)
-                                        scope.launch { drawerState.close() }
-                                    },
-                                    onSelectTrash = {
-                                        viewModel.navigateTo(Screen.Trash)
-                                        scope.launch { drawerState.close() }
-                                    },
-                                    onSelectSettings = {
-                                        viewModel.navigateTo(Screen.Settings)
-                                        scope.launch { drawerState.close() }
-                                    }
-                                )
-                            }
-                        ) {
-                            Scaffold(
-                                modifier = Modifier.fillMaxSize(),
-                                contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                                snackbarHost = { SnackbarHost(snackbarHostState) }
-                            ) { innerPadding ->
-                                AnimatedContent(
-                                    targetState = uiState.currentScreen,
-                                    transitionSpec = screenTransitionSpec(),
-                                    label = "screen_transition",
-                                    modifier = Modifier.padding(innerPadding)
-                                ) { screen ->
-                                    when (screen) {
-                                        is Screen.Home -> {
-                                            HomeScreen(
-                                                uiState = uiState,
-                                                notes = filteredNotes,
-                                                allTags = allTags,
-                                                onOpenDrawer = {
-                                                    scope.launch { drawerState.open() }
-                                                },
-                                                isDrawerOpen = { drawerState.isOpen },
-                                                onSearchQueryChange = { viewModel.onSearchQueryChange(it) },
-                                                onColorFilterChange = { viewModel.onColorFilterChange(it) },
-                                                onTagFilterChange = { viewModel.onTagFilterChange(it) },
-                                                onToggleLayout = { viewModel.toggleLayoutView() },
-                                                onNoteClick = { note ->
-                                                    if (DrawingSerializer.isDrawing(note.content)) {
-                                                        viewModel.navigateTo(Screen.Drawing(note.id))
-                                                    } else {
-                                                        viewModel.navigateTo(Screen.Editor(note.id))
-                                                    }
-                                                },
-                                                onNoteLongClick = { note ->
-                                                    viewModel.toggleSelection(note.id)
-                                                },
-                                                onTogglePinSelected = { viewModel.togglePinForSelected() },
-                                                onAddNewNote = {
-                                                    viewModel.navigateTo(Screen.Editor(0L))
-                                                },
-                                                onAddNewDrawingNote = {
-                                                    viewModel.navigateTo(Screen.Drawing(0L))
-                                                },
-                                                onClearSelection = { viewModel.clearSelection() },
-                                                onSelectAll = { viewModel.selectAll(filteredNotes) },
-                                                onMoveSelectedToTrash = { viewModel.moveSelectedToTrash() },
-                                                onMoveSelectedToArchive = { viewModel.moveSelectedToArchive() },
-                                                onUndoMoveToTrash = { viewModel.undoMoveToTrash() },
-                                                onSortOptionChange = { viewModel.setSortOption(it) }
-                                            )
-                                        }
-
-                                        is Screen.Editor -> {
-                                            NoteEditorScreen(
-                                                noteId = screen.noteId,
-                                                availableTags = allTags,
-                                                onGetNote = { id -> viewModel.getNote(id) },
-                                                onSaveNote = {
-                                                    id, title, content, colorIndex, tags, isPinned,
-                                                    inArchive, reminderTime ->
-                                                    viewModel.saveNote(
-                                                        id, title, content, colorIndex, tags, isPinned,
-                                                        inArchive, reminderTime
-                                                    ).id
-                                                },
-                                                onAddLabel = { label -> viewModel.addLabel(label) },
-                                                onMoveToArchive = { id -> viewModel.moveToArchive(id) },
-                                                onClearReminder = { id -> viewModel.setNoteReminder(id, null) },
-                                                onOpenDrawing = { noteId ->
-                                                    viewModel.navigateTo(
-                                                        Screen.Drawing(noteId, screen.returnTo)
-                                                    )
-                                                },
-                                                onNavigateBack = { viewModel.navigateTo(screen.returnTo) }
-                                            )
-                                        }
-
-                                        is Screen.Drawing -> {
-                                            DrawingScreen(
-                                                noteId = screen.noteId,
-                                                onGetNote = { id -> viewModel.getNote(id) },
-                                                onSaveNote = {
-                                                    id, title, content, colorIndex, tags, isPinned,
-                                                    inArchive ->
-                                                    viewModel.saveNote(
-                                                        id, title, content, colorIndex, tags,
-                                                        isPinned, inArchive
-                                                    ).id
-                                                },
-                                                onNavigateBack = { savedId ->
-                                                    if (savedId > 0L) {
-                                                        viewModel.navigateTo(Screen.Editor(savedId, screen.returnTo))
-                                                    } else {
-                                                        viewModel.navigateTo(screen.returnTo)
-                                                    }
-                                                }
-                                            )
-                                        }
-
-                                        is Screen.Archive -> {
-                                            ArchiveScreen(
-                                                notes = archiveNotes,
-                                                isGridLayout = uiState.isGridLayout,
-                                                onOpenDrawer = {
-                                                    scope.launch { drawerState.open() }
-                                                },
-                                                isDrawerOpen = { drawerState.isOpen },
-                                                onNavigateBack = { viewModel.navigateTo(Screen.Home) },
-                                                onRestoreNote = { viewModel.restoreFromArchive(it) },
-                                                onRestoreSelected = { selectedIds ->
-                                                    viewModel.restoreSelectedArchiveNotes(selectedIds)
-                                                },
-                                                onMoveSelectedToTrash = { selectedIds ->
-                                                    viewModel.moveSelectedToTrash(selectedIds)
-                                                },
-                                                onUndoMoveToTrash = { viewModel.undoMoveToTrash() },
-                                                onNoteClick = { note ->
-                                                    if (DrawingSerializer.isDrawing(note.content)) {
-                                                        viewModel.navigateTo(Screen.Drawing(note.id, Screen.Archive))
-                                                    } else {
-                                                        viewModel.navigateTo(Screen.Editor(note.id, Screen.Archive))
-                                                    }
-                                                }
-                                            )
-                                        }
-
-                                        is Screen.Trash -> {
-                                            TrashScreen(
-                                                trashNotes = trashNotes,
-                                                isGridLayout = uiState.isGridLayout,
-                                                onOpenDrawer = {
-                                                    scope.launch { drawerState.open() }
-                                                },
-                                                isDrawerOpen = { drawerState.isOpen },
-                                                onNavigateBack = { viewModel.navigateTo(Screen.Home) },
-                                                onRestoreNote = { viewModel.restoreFromTrash(it) },
-                                                onPermanentlyDeleteNote = { viewModel.permanentlyDelete(it) },
-                                                onEmptyTrash = { viewModel.emptyTrash() },
-                                                onRestoreSelected = { viewModel.restoreSelectedTrashNotes(it) },
-                                                onPermanentlyDeleteSelected = {
-                                                    viewModel.permanentlyDeleteSelectedTrashNotes(it)
-                                                },
-                                                onNoteClick = { note ->
-                                                    if (DrawingSerializer.isDrawing(note.content)) {
-                                                        viewModel.navigateTo(Screen.Drawing(note.id, Screen.Trash))
-                                                    } else {
-                                                        viewModel.navigateTo(Screen.Editor(note.id, Screen.Trash))
-                                                    }
-                                                }
-                                            )
-                                        }
-
-                                        is Screen.Settings -> {
-                                            SettingsScreen(
-                                                uiState = uiState,
-                                                notes = rawActiveNotes,
-                                                autoBackupStatus = autoBackupStatus,
-                                                importOutcome = importOutcome,
-                                                onThemeChange = { viewModel.setTheme(it) },
-                                                onLockToggle = { enabled ->
-                                                    viewModel.setLockEnabled(enabled)
-                                                },
-                                                onAutoBackupChange = { enabled ->
-                                                    viewModel.setAutoBackup(enabled)
-                                                },
-                                                onBackUpNow = { name -> viewModel.backUp(name) },
-                                                onImportNotes = { viewModel.importNotes(it) },
-                                                onImportOutcomeShown = { viewModel.clearImportOutcome() },
-                                                onNavigateBack = { viewModel.navigateTo(Screen.Home) }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Dynamic "Edit Labels" Dialog (Tag Management)
-                        if (uiState.showEditLabelsDialog) {
-                            EditLabelsDialog(
-                                labels = roomLabels,
-                                onAddLabel = { viewModel.addLabel(it) },
-                                onRenameLabel = { old, new -> viewModel.renameLabel(old, new) },
-                                onDeleteLabel = { viewModel.deleteLabel(it) },
-                                onDismiss = { viewModel.setEditLabelsDialogVisible(false) }
-                            )
-                        }
-                    }
-                }
             }
         }
     }
@@ -570,7 +289,7 @@ private const val SCREEN_TOP_LEVEL_SLIDE_DIVISOR = 3
  * Drawer destinations use a subtle shared-axis slide; detail screens push in
  * with a full-width slide and slide back out on the way home.
  */
-private fun screenTransitionSpec(): AnimatedContentTransitionScope<Screen>.() -> ContentTransform = {
+internal fun screenTransitionSpec(): AnimatedContentTransitionScope<Screen>.() -> ContentTransform = {
     val from = screenRank(initialState)
     val to = screenRank(targetState)
     val lastTopLevel = DestinationRank.SETTINGS.ordinal
