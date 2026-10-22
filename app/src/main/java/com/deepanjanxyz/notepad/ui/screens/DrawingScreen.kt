@@ -311,16 +311,18 @@ fun DrawingScreen(
                 selectedColor = selectedColor,
                 currentAlpha = currentAlpha,
                 isCurrentHighlighter = isCurrentHighlighter,
-                onStrokesChange = { strokes = it },
-                onCurrentStrokeChange = { currentStroke = it },
-                onSelectedIndicesChange = { selectedStrokeIndices = it },
-                onSelectionMarqueeChange = { selectionMarquee = it },
-                onPushHistory = { pushHistory() },
-                onEraseNear = { cur, prev -> eraseNear(cur, prev) },
-                onCanvasTouchDown = {
-                    showColorPalette = false
-                    showEraserOptions = false
-                }
+                callbacks = DrawingCanvasCallbacks(
+                    onStrokesChange = { strokes = it },
+                    onCurrentStrokeChange = { currentStroke = it },
+                    onSelectedIndicesChange = { selectedStrokeIndices = it },
+                    onSelectionMarqueeChange = { selectionMarquee = it },
+                    onPushHistory = { pushHistory() },
+                    onEraseNear = { cur, prev -> eraseNear(cur, prev) },
+                    onCanvasTouchDown = {
+                        showColorPalette = false
+                        showEraserOptions = false
+                    }
+                )
             )
 
             if (activeTool == DrawingTool.SELECT && selectedStrokeIndices.isNotEmpty()) {
