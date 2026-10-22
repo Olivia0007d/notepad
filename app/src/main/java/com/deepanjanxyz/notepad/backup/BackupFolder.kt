@@ -18,7 +18,14 @@ import java.io.IOException
  * and so on - one more file on every run, for ever. The only way in is for the
  * user to grant the folder itself, once. This holds that grant and the file
  * operations it makes possible.
+ *
+ * `TooManyFunctions` is suppressed here rather than the object split. This object
+ * is the whole of the backup folder - where it is, how it is named, and every read,
+ * write and delete the app performs inside it - and its functions are short and
+ * each of them is called from somewhere. Splitting them across files would move the
+ * same code behind a second name without making any of it simpler.
  */
+@Suppress("TooManyFunctions")
 object BackupFolder {
 
     /** Name of the folder the backup is kept in, under Downloads. */

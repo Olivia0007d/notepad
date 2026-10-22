@@ -96,6 +96,15 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * The settings screen: the theme, the lock, the backups and the import.
+ *
+ * `LongMethod` and `CyclomaticComplexMethod` are suppressed here rather than the
+ * screen split. Its state, its callbacks and its layout are read together, and the
+ * alternatives - threading a dozen parameters through new composables, or hiding the
+ * flow behind them - would not make any of it simpler.
+ */
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(

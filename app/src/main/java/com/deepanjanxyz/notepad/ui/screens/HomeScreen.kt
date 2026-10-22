@@ -99,6 +99,15 @@ import com.deepanjanxyz.notepad.ui.components.ActionTooltip
 import com.deepanjanxyz.notepad.ui.theme.AppColors
 import kotlinx.coroutines.launch
 
+/**
+ * The home screen: the note list, its search, its selection bar and its empty state.
+ *
+ * `LongMethod` and `CyclomaticComplexMethod` are suppressed here rather than the
+ * screen split. Its state, its callbacks and its layout are read together, and the
+ * alternatives - threading a dozen parameters through new composables, or hiding the
+ * flow behind them - would not make any of it simpler.
+ */
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(

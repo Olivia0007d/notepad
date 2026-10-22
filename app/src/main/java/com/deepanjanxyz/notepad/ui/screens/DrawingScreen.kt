@@ -67,6 +67,15 @@ private const val PANEL_FADE_OUT_DURATION_MS = 180
 fun getSelectionBounds(strokes: List<DrawingStroke>, selectedIndices: Set<Int>): Rect? =
     utilGetSelectionBounds(strokes, selectedIndices)
 
+/**
+ * The drawing screen: the canvas, the tools, the sheets and the note it saves into.
+ *
+ * `LongMethod` and `CyclomaticComplexMethod` are suppressed here rather than the
+ * screen split. Its state, its callbacks and its layout are read together, and the
+ * alternatives - threading a dozen parameters through new composables, or hiding the
+ * flow behind them - would not make any of it simpler.
+ */
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DrawingScreen(

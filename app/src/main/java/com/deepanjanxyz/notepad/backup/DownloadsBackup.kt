@@ -34,7 +34,13 @@ private const val MILLIS_PER_SECOND = 1000L
  * it under a numbered name instead. Once the user hands the folder over (see
  * [BackupFolder]) the folder is used, which can read the old file, replace it
  * and clear the copies away.
+ *
+ * `TooManyFunctions` is suppressed here rather than the object split, for the same
+ * reason as in [BackupFolder]: these functions are the whole of writing, finding,
+ * reading and removing the backup file, they are short, and each is called from
+ * somewhere. Moving them apart would be a rearrangement, not a fix.
  */
+@Suppress("TooManyFunctions")
 object DownloadsBackup {
 
     /** Name of the single, always-replaced backup file. */

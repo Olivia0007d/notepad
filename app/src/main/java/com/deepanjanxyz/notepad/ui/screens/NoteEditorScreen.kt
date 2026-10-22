@@ -81,6 +81,15 @@ import kotlinx.coroutines.launch
 private const val AUTO_SAVE_DELAY_MS = 500L
 
 
+/**
+ * The note editor: the title, the body, the checklist, the labels, the reminder and the colour.
+ *
+ * `LongMethod` and `CyclomaticComplexMethod` are suppressed here rather than the
+ * screen split. Its state, its callbacks and its layout are read together, and the
+ * alternatives - threading a dozen parameters through new composables, or hiding the
+ * flow behind them - would not make any of it simpler.
+ */
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun NoteEditorScreen(

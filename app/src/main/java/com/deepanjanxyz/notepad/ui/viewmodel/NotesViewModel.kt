@@ -87,6 +87,16 @@ data class NotesUiState(
     val autoBackup: Boolean = false
 )
 
+/**
+ * The app's one view model. Every screen reads its state and calls back into it, so
+ * its functions are the app's verbs.
+ *
+ * `TooManyFunctions` is suppressed here rather than the class split. These functions
+ * share the same repositories, the same dispatcher and the same state, and the
+ * screens read that state as one object; several view models would hand each of them
+ * the same dependencies again and scatter what is now read in one place.
+ */
+@Suppress("TooManyFunctions")
 class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
     private val noteUseCases: NoteUseCases = (application as NotepadApplication).container.noteUseCases
