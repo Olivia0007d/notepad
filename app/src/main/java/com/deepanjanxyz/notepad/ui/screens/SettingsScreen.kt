@@ -31,7 +31,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.Backup
-import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Fingerprint
@@ -96,6 +95,15 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * The settings screen: the theme, the lock, the backups and the import.
+ *
+ * `LongMethod` and `CyclomaticComplexMethod` are suppressed here rather than the
+ * screen split. Its state, its callbacks and its layout are read together, and the
+ * alternatives - threading a dozen parameters through new composables, or hiding the
+ * flow behind them - would not make any of it simpler.
+ */
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -530,7 +538,8 @@ fun SettingsScreen(
 
                     Text(
                         text = "Backups are saved to " + DownloadsBackup.locationLabel() +
-                            " and stay there even if you clear the app's data, so you can restore your notes afterwards.",
+                            " and stay there even if you clear the app's data, " +
+                                "so you can restore your notes afterwards.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -692,7 +701,8 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Crafted with Kotlin Coroutines, Jetpack Compose Material 3, and Room local persistence.",
+                        text = "Crafted with Kotlin Coroutines, Jetpack Compose Material 3, " +
+                            "and Room local persistence.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -845,8 +855,14 @@ private fun backupStatusText(
     status: AutoBackupStatus?,
     fileCount: Int
 ): String {
-    if (status?.error != null) return "Last backup failed: ${status.error}"
-    val lastModified = info?.lastModified ?: return "No backup saved yet"
-    val stamp = SimpleDateFormat("d MMM yyyy, h:mm a", Locale.getDefault()).format(Date(lastModified))
-    return if (fileCount > 1) "Last backup: $stamp \u00b7 $fileCount files" else "Last backup: $stamp"
+    val lastModified = info?.lastModified
+    return when {
+        status?.error != null -> "Last backup failed: ${status.error}"
+        lastModified == null -> "No backup saved yet"
+        else -> {
+            val stamp = SimpleDateFormat("d MMM yyyy, h:mm a", Locale.getDefault())
+                .format(Date(lastModified))
+            if (fileCount > 1) "Last backup: $stamp \u00b7 $fileCount files" else "Last backup: $stamp"
+        }
+    }
 }

@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.deepanjanxyz.notepad.domain.model.ChecklistSegment
 import com.deepanjanxyz.notepad.ui.components.ActionTooltip
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 
 /**
  * Checklist mode for the note editor.
@@ -56,32 +57,18 @@ fun EditorChecklistContent(
     onItemCheckChange: (itemId: String, isChecked: Boolean) -> Unit,
     onItemTextChange: (itemId: String, newText: String) -> Unit,
     onItemDelete: (itemId: String) -> Unit,
-    textPrimary: Color = Color(0xFFE2E2E6),
-    textPlaceholder: Color = Color(0xFF6E7179),
-    amberAccent: Color = Color(0xFFFFB300),
+    textPrimary: Color = AppColors.TextPrimary,
+    textPlaceholder: Color = AppColors.TextPlaceholder,
+    amberAccent: Color = AppColors.AccentAmber,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         segments.forEach { segment ->
             when (segment) {
-                is ChecklistSegment.Text -> {
-                    if (segment.text.isBlank()) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                    } else {
-                        Text(
-                            text = segment.text,
-                            style = TextStyle(
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Normal,
-                                color = textPrimary,
-                                lineHeight = 24.sp
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        )
-                    }
-                }
+                is ChecklistSegment.Text -> ChecklistTextSegment(
+                    text = segment.text,
+                    textPrimary = textPrimary
+                )
 
                 is ChecklistSegment.Task -> ChecklistTaskRow(
                     itemId = segment.item.id,
@@ -97,67 +84,14 @@ fun EditorChecklistContent(
         }
 
         // New Item input row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = null,
-                tint = Color(0xFF8E9099),
-                modifier = Modifier.size(22.dp)
-            )
-            BasicTextField(
-                value = newItemText,
-                onValueChange = onNewItemTextChange,
-                textStyle = TextStyle(
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = textPrimary,
-                    lineHeight = 24.sp
-                ),
-                cursorBrush = SolidColor(amberAccent),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { onAddNewItem() }),
-                decorationBox = { innerTextField ->
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        if (newItemText.isEmpty()) {
-                            Text(
-                                text = "List item",
-                                style = TextStyle(
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    color = textPlaceholder
-                                )
-                            )
-                        }
-                        innerTextField()
-                    }
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 14.dp)
-                    .testTag("new_checklist_item_input")
-            )
-            ActionTooltip("Add list item") {
-                IconButton(
-                    onClick = onAddNewItem,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .testTag("add_checklist_item_button")
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add list item",
-                        tint = amberAccent,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
-        }
+        NewChecklistItemRow(
+            newItemText = newItemText,
+            onNewItemTextChange = onNewItemTextChange,
+            onAddNewItem = onAddNewItem,
+            textPrimary = textPrimary,
+            textPlaceholder = textPlaceholder,
+            amberAccent = amberAccent
+        )
     }
 }
 
@@ -221,7 +155,7 @@ private fun RowScope.ChecklistItemText(
         textStyle = TextStyle(
             fontSize = 18.sp,
             fontWeight = FontWeight.Normal,
-            color = if (isChecked) Color(0xFF6E7179) else textPrimary,
+            color = if (isChecked) AppColors.TextPlaceholder else textPrimary,
             textDecoration = if (isChecked) TextDecoration.LineThrough else TextDecoration.None,
             lineHeight = 24.sp
         ),
@@ -271,7 +205,7 @@ private fun ChecklistCheckboxMark(isChecked: Boolean, amberAccent: Color) {
                 if (isChecked) {
                     Modifier.background(amberAccent)
                 } else {
-                    Modifier.border(1.8.dp, Color(0xFF8E9099), RoundedCornerShape(3.dp))
+                    Modifier.border(1.8.dp, AppColors.TextMuted, RoundedCornerShape(3.dp))
                 }
             ),
         contentAlignment = Alignment.Center
@@ -280,7 +214,7 @@ private fun ChecklistCheckboxMark(isChecked: Boolean, amberAccent: Color) {
             Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = "Completed",
-                tint = Color(0xFF1B1B1F),
+                tint = AppColors.TextOnAmber,
                 modifier = Modifier.size(15.dp)
             )
         }
@@ -309,9 +243,123 @@ private fun ChecklistRemoveButton(
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Remove item",
-                tint = Color(0xFF6E7179),
+                tint = AppColors.TextPlaceholder,
                 modifier = Modifier.size(18.dp)
             )
         }
     }
+}
+
+/** One run of plain text between the checklist lines. */
+@Composable
+private fun ChecklistTextSegment(text: String, textPrimary: Color) {
+    if (text.isBlank()) {
+        Spacer(modifier = Modifier.height(12.dp))
+    } else {
+        Text(
+            text = text,
+            style = TextStyle(
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Normal,
+                color = textPrimary,
+                lineHeight = 24.sp
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+        )
+    }
+}
+
+/** The row that adds a new checklist item: an add glyph, the field and its button. */
+@Composable
+private fun NewChecklistItemRow(
+    newItemText: String,
+    onNewItemTextChange: (String) -> Unit,
+    onAddNewItem: () -> Unit,
+    textPrimary: Color,
+    textPlaceholder: Color,
+    amberAccent: Color
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = null,
+            tint = AppColors.TextMuted,
+            modifier = Modifier.size(22.dp)
+        )
+        NewChecklistItemField(
+            newItemText = newItemText,
+            onNewItemTextChange = onNewItemTextChange,
+            onAddNewItem = onAddNewItem,
+            textPrimary = textPrimary,
+            textPlaceholder = textPlaceholder,
+            amberAccent = amberAccent
+        )
+        ActionTooltip("Add list item") {
+            IconButton(
+                onClick = onAddNewItem,
+                modifier = Modifier
+                    .size(36.dp)
+                    .testTag("add_checklist_item_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Add list item",
+                    tint = amberAccent,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
+}
+
+/** The text field a new checklist item is typed into. */
+@Composable
+private fun RowScope.NewChecklistItemField(
+    newItemText: String,
+    onNewItemTextChange: (String) -> Unit,
+    onAddNewItem: () -> Unit,
+    textPrimary: Color,
+    textPlaceholder: Color,
+    amberAccent: Color
+) {
+    BasicTextField(
+        value = newItemText,
+        onValueChange = onNewItemTextChange,
+        textStyle = TextStyle(
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Normal,
+            color = textPrimary,
+            lineHeight = 24.sp
+        ),
+        cursorBrush = SolidColor(amberAccent),
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { onAddNewItem() }),
+        decorationBox = { innerTextField ->
+            Box(modifier = Modifier.fillMaxWidth()) {
+                if (newItemText.isEmpty()) {
+                    Text(
+                        text = "List item",
+                        style = TextStyle(
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = textPlaceholder
+                        )
+                    )
+                }
+                innerTextField()
+            }
+        },
+        modifier = Modifier
+            .weight(1f)
+            .padding(horizontal = 14.dp)
+            .testTag("new_checklist_item_input")
+    )
 }

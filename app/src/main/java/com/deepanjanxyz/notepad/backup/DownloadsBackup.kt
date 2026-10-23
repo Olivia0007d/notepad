@@ -12,6 +12,9 @@ import androidx.annotation.RequiresApi
 import java.io.File
 import java.io.IOException
 
+private const val MILLIS_PER_SECOND = 1000L
+
+
 /**
  * Reads and writes the app's backup file in the public Downloads folder.
  *
@@ -31,7 +34,13 @@ import java.io.IOException
  * it under a numbered name instead. Once the user hands the folder over (see
  * [BackupFolder]) the folder is used, which can read the old file, replace it
  * and clear the copies away.
+ *
+ * `TooManyFunctions` is suppressed here rather than the object split, for the same
+ * reason as in [BackupFolder]: these functions are the whole of writing, finding,
+ * reading and removing the backup file, they are short, and each is called from
+ * somewhere. Moving them apart would be a rearrangement, not a fix.
  */
+@Suppress("TooManyFunctions")
 object DownloadsBackup {
 
     /** Name of the single, always-replaced backup file. */
@@ -227,29 +236,32 @@ object DownloadsBackup {
         }
 
     /** Describes the default backup file, or null when it does not exist. */
-    fun info(context: Context): Info? {
-        if (BackupFolder.hasAccess(context)) {
-            val found = BackupFolder.find(context, FILE_NAME)
-            return found?.let { Info(locationLabel(), it.lastModified) }
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val resolver = context.contentResolver
-            resolver.query(
-                MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                arrayOf(MediaStore.MediaColumns.DATE_MODIFIED),
-                selection(),
-                selectionArgs(FILE_NAME),
-                null
-            )?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    // MediaStore stores DATE_MODIFIED in seconds.
-                    return Info(locationLabel(), cursor.getLong(0) * 1000L)
-                }
+    fun info(context: Context): Info? = when {
+        BackupFolder.hasAccess(context) ->
+            BackupFolder.find(context, FILE_NAME)?.let { Info(locationLabel(), it.lastModified) }
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> infoFromMediaStore(context)
+        else -> legacyFile(FILE_NAME)
+            .takeIf { it.exists() }
+            ?.let { Info(locationLabel(), it.lastModified()) }
+    }
+
+    /** Describes the default backup file as the media store reports it. */
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun infoFromMediaStore(context: Context): Info? {
+        val resolver = context.contentResolver
+        resolver.query(
+            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+            arrayOf(MediaStore.MediaColumns.DATE_MODIFIED),
+            selection(),
+            selectionArgs(FILE_NAME),
+            null
+        )?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                // MediaStore stores DATE_MODIFIED in seconds.
+                return Info(locationLabel(), cursor.getLong(0) * MILLIS_PER_SECOND)
             }
-            return null
         }
-        val file = legacyFile(FILE_NAME)
-        return if (file.exists()) Info(locationLabel(), file.lastModified()) else null
+        return null
     }
 
     /**
@@ -285,9 +297,10 @@ object DownloadsBackup {
                 null
             )?.use { cursor ->
                 while (cursor.moveToNext()) {
-                    val name = cursor.getString(0) ?: continue
-                    if (!name.endsWith(BackupFileNames.JSON_SUFFIX)) continue
-                    entries += Entry(name, cursor.getLong(1) * 1000L)
+                    val name = cursor.getString(0)
+                    if (name != null && name.endsWith(BackupFileNames.JSON_SUFFIX)) {
+                        entries += Entry(name, cursor.getLong(1) * MILLIS_PER_SECOND)
+                    }
                 }
             }
             return entries

@@ -42,21 +42,39 @@ import com.deepanjanxyz.notepad.domain.model.Note
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.CanvasBackgroundDialog
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingBottomToolbar
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingCanvas
+import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingCanvasCallbacks
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingColorPaletteSheet
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingEraserDrawer
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingTopBar
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.FloatingSelectionBar
-import com.deepanjanxyz.notepad.ui.feature_drawing.model.KeepThicknessLevels
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.eraseSegmentAt
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.getSelectionBounds as utilGetSelectionBounds
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.isStrokeHit
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+// How long the screen waits after a change before it saves, in milliseconds.
+private const val AUTO_SAVE_DELAY_MS = 600L
+// Durations of the tool panel enter and exit animations, in milliseconds.
+private const val PANEL_ENTER_DURATION_MS = 220
+private const val PANEL_EXIT_DURATION_MS = 200
+private const val PANEL_FADE_OUT_DURATION_MS = 180
+
 
 // Kept as a package-level bridge for callers that predate the drawing utility split.
 fun getSelectionBounds(strokes: List<DrawingStroke>, selectedIndices: Set<Int>): Rect? =
     utilGetSelectionBounds(strokes, selectedIndices)
 
+/**
+ * The drawing screen: the canvas, the tools, the sheets and the note it saves into.
+ *
+ * `LongMethod` and `CyclomaticComplexMethod` are suppressed here rather than the
+ * screen split. Its state, its callbacks and its layout are read together, and the
+ * alternatives - threading a dozen parameters through new composables, or hiding the
+ * flow behind them - would not make any of it simpler.
+ */
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DrawingScreen(
@@ -77,7 +95,7 @@ fun DrawingScreen(
     var isPinned by remember { mutableStateOf(false) }
     var inArchive by remember { mutableStateOf(false) }
 
-    var canvasBackgroundColor by remember { mutableLongStateOf(0xFFFFFFFFL) }
+    var canvasBackgroundColor by remember { mutableLongStateOf(AppColors.OPAQUE_WHITE) }
     var canvasGridType by remember { mutableStateOf(CanvasGridType.NONE) }
     var strokes by remember { mutableStateOf<List<DrawingStroke>>(emptyList()) }
     var currentStroke by remember { mutableStateOf<DrawingStroke?>(null) }
@@ -166,9 +184,14 @@ fun DrawingScreen(
         isLoaded = true
     }
 
-    LaunchedEffect(strokes, canvasBackgroundColor, title, noteDescription, colorIndex, tags, isPinned, inArchive, isLoaded) {
-        if (isLoaded && (strokes.isNotEmpty() || title.isNotBlank() || noteDescription.isNotBlank())) {
-            delay(600)
+    LaunchedEffect(
+        strokes, canvasBackgroundColor, title, noteDescription, colorIndex,
+        tags, isPinned, inArchive, isLoaded
+    ) {
+        val hasSomethingToSave =
+            strokes.isNotEmpty() || title.isNotBlank() || noteDescription.isNotBlank()
+        if (isLoaded && hasSomethingToSave) {
+            delay(AUTO_SAVE_DELAY_MS)
             val drawingJson = DrawingSerializer.serialize(strokes, canvasBackgroundColor)
             val combined = DrawingSerializer.combine(drawingJson, noteDescription)
             val savedId = onSaveNote(currentNoteId, title, combined, colorIndex, tags, isPinned, inArchive)
@@ -247,7 +270,7 @@ fun DrawingScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF131314))
+            .background(AppColors.PanelDeep)
             .navigationBarsPadding()
     ) {
         DrawingTopBar(
@@ -290,8 +313,6 @@ fun DrawingScreen(
                 canvasBackgroundColor = canvasBackgroundColor,
                 canvasGridType = canvasGridType,
                 activeTool = activeTool,
-                eraserMode = eraserMode,
-                eraserRadiusPx = eraserRadiusPx,
                 selectedStrokeIndices = selectedStrokeIndices,
                 selectionBounds = selectionBounds,
                 selectionMarquee = selectionMarquee,
@@ -299,16 +320,18 @@ fun DrawingScreen(
                 selectedColor = selectedColor,
                 currentAlpha = currentAlpha,
                 isCurrentHighlighter = isCurrentHighlighter,
-                onStrokesChange = { strokes = it },
-                onCurrentStrokeChange = { currentStroke = it },
-                onSelectedIndicesChange = { selectedStrokeIndices = it },
-                onSelectionMarqueeChange = { selectionMarquee = it },
-                onPushHistory = { pushHistory() },
-                onEraseNear = { cur, prev -> eraseNear(cur, prev) },
-                onCanvasTouchDown = {
-                    showColorPalette = false
-                    showEraserOptions = false
-                }
+                callbacks = DrawingCanvasCallbacks(
+                    onStrokesChange = { strokes = it },
+                    onCurrentStrokeChange = { currentStroke = it },
+                    onSelectedIndicesChange = { selectedStrokeIndices = it },
+                    onSelectionMarqueeChange = { selectionMarquee = it },
+                    onPushHistory = { pushHistory() },
+                    onEraseNear = { cur, prev -> eraseNear(cur, prev) },
+                    onCanvasTouchDown = {
+                        showColorPalette = false
+                        showEraserOptions = false
+                    }
+                )
             )
 
             if (activeTool == DrawingTool.SELECT && selectedStrokeIndices.isNotEmpty()) {
@@ -325,9 +348,14 @@ fun DrawingScreen(
         }
 
         AnimatedVisibility(
-            visible = showColorPalette && (activeTool == DrawingTool.PEN || activeTool == DrawingTool.MARKER || activeTool == DrawingTool.HIGHLIGHTER),
-            enter = slideInVertically(animationSpec = tween(220)) { it } + fadeIn(animationSpec = tween(220)),
-            exit = slideOutVertically(animationSpec = tween(200)) { it } + fadeOut(animationSpec = tween(180))
+            visible = showColorPalette &&
+                (activeTool == DrawingTool.PEN ||
+                    activeTool == DrawingTool.MARKER ||
+                    activeTool == DrawingTool.HIGHLIGHTER),
+            enter = slideInVertically(animationSpec = tween(PANEL_ENTER_DURATION_MS)) { it } +
+                fadeIn(animationSpec = tween(PANEL_ENTER_DURATION_MS)),
+            exit = slideOutVertically(animationSpec = tween(PANEL_EXIT_DURATION_MS)) { it } +
+                fadeOut(animationSpec = tween(PANEL_FADE_OUT_DURATION_MS))
         ) {
             DrawingColorPaletteSheet(
                 activeTool = activeTool,
@@ -354,8 +382,10 @@ fun DrawingScreen(
 
         AnimatedVisibility(
             visible = showEraserOptions && activeTool == DrawingTool.ERASER,
-            enter = slideInVertically(animationSpec = tween(220)) { it } + fadeIn(animationSpec = tween(220)),
-            exit = slideOutVertically(animationSpec = tween(200)) { it } + fadeOut(animationSpec = tween(180))
+            enter = slideInVertically(animationSpec = tween(PANEL_ENTER_DURATION_MS)) { it } +
+                fadeIn(animationSpec = tween(PANEL_ENTER_DURATION_MS)),
+            exit = slideOutVertically(animationSpec = tween(PANEL_EXIT_DURATION_MS)) { it } +
+                fadeOut(animationSpec = tween(PANEL_FADE_OUT_DURATION_MS))
         ) {
             DrawingEraserDrawer(
                 currentMode = eraserMode,

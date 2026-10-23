@@ -96,8 +96,18 @@ import com.deepanjanxyz.notepad.ui.theme.NoteColorOptions
 import com.deepanjanxyz.notepad.ui.viewmodel.NoteSortOption
 import com.deepanjanxyz.notepad.ui.viewmodel.NotesUiState
 import com.deepanjanxyz.notepad.ui.components.ActionTooltip
+import com.deepanjanxyz.notepad.ui.theme.AppColors
 import kotlinx.coroutines.launch
 
+/**
+ * The home screen: the note list, its search, its selection bar and its empty state.
+ *
+ * `LongMethod` and `CyclomaticComplexMethod` are suppressed here rather than the
+ * screen split. Its state, its callbacks and its layout are read together, and the
+ * alternatives - threading a dozen parameters through new composables, or hiding the
+ * flow behind them - would not make any of it simpler.
+ */
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
@@ -112,7 +122,6 @@ fun HomeScreen(
     onToggleLayout: () -> Unit,
     onNoteClick: (Note) -> Unit,
     onNoteLongClick: (Note) -> Unit,
-    onTogglePin: (Note) -> Unit,
     onTogglePinSelected: () -> Unit,
     onAddNewNote: () -> Unit,
     onAddNewDrawingNote: () -> Unit = {},
@@ -180,7 +189,11 @@ fun HomeScreen(
                                 modifier = Modifier.testTag("select_all_button")
                             ) {
                                 Icon(
-                                    imageVector = if (isAllSelected) Icons.Default.Deselect else Icons.Default.SelectAll,
+                                    imageVector = if (isAllSelected) {
+                                        Icons.Default.Deselect
+                                    } else {
+                                        Icons.Default.SelectAll
+                                    },
                                     contentDescription = if (isAllSelected) "Deselect all" else "Select all"
                                 )
                             }
@@ -194,7 +207,11 @@ fun HomeScreen(
                             ) {
                                 Icon(
                                     imageVector = if (anyUnpinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                                    contentDescription = if (anyUnpinned) "Pin selected notes" else "Unpin selected notes",
+                                    contentDescription = if (anyUnpinned) {
+                                        "Pin selected notes"
+                                    } else {
+                                        "Unpin selected notes"
+                                    },
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -470,7 +487,7 @@ fun HomeScreen(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = if (uiState.searchQuery.isNotBlank()) Icons.Default.Description else Icons.Default.Description,
+                                    imageVector = Icons.Default.Description,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(40.dp)
@@ -552,7 +569,8 @@ fun HomeScreen(
                     verticalItemSpacing = 12.dp,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    // Do NOT permanently display a dedicated "Pinned Section" header unless pinned notes actually exist!
+                    // Do NOT permanently display a dedicated "Pinned Section" header unless
+                    // pinned notes actually exist!
                     if (pinnedNotes.isNotEmpty()) {
                         item(key = "pinned_header", span = StaggeredGridItemSpan.FullLine) {
                             Row(
@@ -589,7 +607,6 @@ fun HomeScreen(
                                     }
                                 },
                                 onLongClick = { onNoteLongClick(note) },
-                                onTogglePin = { onTogglePin(note) },
                                 modifier = Modifier.animateItem()
                             )
                         }
@@ -621,7 +638,6 @@ fun HomeScreen(
                                 }
                             },
                             onLongClick = { onNoteLongClick(note) },
-                            onTogglePin = { onTogglePin(note) },
                             modifier = Modifier.animateItem()
                         )
                     }
@@ -671,13 +687,13 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(46.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFFFB300)),
+                                .background(AppColors.AccentAmber),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.EditNote,
                                 contentDescription = null,
-                                tint = Color(0xFF1B1B1F),
+                                tint = AppColors.TextOnAmber,
                                 modifier = Modifier.size(28.dp)
                             )
                         }
@@ -720,7 +736,7 @@ fun HomeScreen(
                             modifier = Modifier
                                 .size(46.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF2196F3)),
+                                .background(AppColors.Accent),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(

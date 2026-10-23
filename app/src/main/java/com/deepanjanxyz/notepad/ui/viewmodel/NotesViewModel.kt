@@ -36,6 +36,10 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
+// How long the view model waits after a change before it saves, in milliseconds.
+private const val AUTO_SAVE_DELAY_MS = 600L
+
+
 sealed interface Screen {
     data object Home : Screen
     data class Editor(val noteId: Long = 0L, val returnTo: Screen = Home) : Screen
@@ -83,6 +87,16 @@ data class NotesUiState(
     val autoBackup: Boolean = false
 )
 
+/**
+ * The app's one view model. Every screen reads its state and calls back into it, so
+ * its functions are the app's verbs.
+ *
+ * `TooManyFunctions` is suppressed here rather than the class split. These functions
+ * share the same repositories, the same dispatcher and the same state, and the
+ * screens read that state as one object; several view models would hand each of them
+ * the same dependencies again and scatter what is now read in one place.
+ */
+@Suppress("TooManyFunctions")
 class NotesViewModel(application: Application) : AndroidViewModel(application) {
 
     private val noteUseCases: NoteUseCases = (application as NotepadApplication).container.noteUseCases
@@ -397,7 +411,7 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
                 .drop(1) // ignore the initial empty value emitted before the database loads
                 .collectLatest {
                     // Wait for a quiet moment so a burst of changes becomes one write.
-                    delay(600)
+                    delay(AUTO_SAVE_DELAY_MS)
                     writeAutoBackup()
                 }
         }
@@ -801,7 +815,8 @@ class NotesViewModel(application: Application) : AndroidViewModel(application) {
             NoteSortOption.DATE_CREATED ->
                 compareByDescending<Note> { it.isPinned }.thenBy { it.createdAt }.thenBy { it.id }
             NoteSortOption.TITLE_ASC -> compareByDescending<Note> { it.isPinned }.thenBy { it.title.lowercase() }
-            NoteSortOption.TITLE_DESC -> compareByDescending<Note> { it.isPinned }.thenByDescending { it.title.lowercase() }
+            NoteSortOption.TITLE_DESC ->
+                compareByDescending<Note> { it.isPinned }.thenByDescending { it.title.lowercase() }
             NoteSortOption.COLOR -> compareByDescending<Note> { it.isPinned }.thenBy { it.colorIndex }
         }
         return notes.sortedWith(comparator)
