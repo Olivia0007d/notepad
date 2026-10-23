@@ -27,13 +27,10 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.deepanjanxyz.notepad.EXIT_BACK_WINDOW_MS
 import com.deepanjanxyz.notepad.LockScreen
-import com.deepanjanxyz.notepad.domain.model.Note
 import com.deepanjanxyz.notepad.screenTransitionSpec
 import com.deepanjanxyz.notepad.ui.components.AppDrawerContent
 import com.deepanjanxyz.notepad.ui.components.EditLabelsDialog
 import com.deepanjanxyz.notepad.ui.theme.EliteMemoTheme
-import com.deepanjanxyz.notepad.ui.viewmodel.AutoBackupStatus
-import com.deepanjanxyz.notepad.ui.viewmodel.ImportOutcome
 import com.deepanjanxyz.notepad.ui.viewmodel.NotesUiState
 import com.deepanjanxyz.notepad.ui.viewmodel.NotesViewModel
 import com.deepanjanxyz.notepad.ui.viewmodel.Screen

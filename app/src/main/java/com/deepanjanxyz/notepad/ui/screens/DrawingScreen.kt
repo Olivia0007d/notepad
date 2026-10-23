@@ -47,7 +47,6 @@ import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingColorPalett
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingEraserDrawer
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.DrawingTopBar
 import com.deepanjanxyz.notepad.ui.feature_drawing.components.FloatingSelectionBar
-import com.deepanjanxyz.notepad.ui.feature_drawing.model.KeepThicknessLevels
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.eraseSegmentAt
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.getSelectionBounds as utilGetSelectionBounds
 import com.deepanjanxyz.notepad.ui.feature_drawing.util.isStrokeHit

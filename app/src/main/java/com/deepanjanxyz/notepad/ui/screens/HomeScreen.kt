@@ -487,11 +487,7 @@ fun HomeScreen(
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(
-                                    imageVector = if (uiState.searchQuery.isNotBlank()) {
-                                        Icons.Default.Description
-                                    } else {
-                                        Icons.Default.Description
-                                    },
+                                    imageVector = Icons.Default.Description,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(40.dp)

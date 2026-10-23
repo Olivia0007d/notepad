@@ -98,7 +98,7 @@ fun SelectionToolIcon(isSelected: Boolean) {
 fun EraserToolIcon(isSelected: Boolean) {
     Canvas(modifier = Modifier.size(24.dp)) {
         val bodyColor = if (isSelected) AppColors.Accent else AppColors.TextMuted
-        val capColor = if (isSelected) Color.White else Color(0xFFC0C2CC)
+        val capColor = if (isSelected) Color.White else AppColors.IconIdleOnTool
 
         val path = Path().apply {
             moveTo(size.width * 0.22f, size.height * 0.78f)

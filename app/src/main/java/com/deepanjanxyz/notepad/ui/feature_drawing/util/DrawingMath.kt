@@ -4,12 +4,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import com.deepanjanxyz.notepad.domain.model.DrawingPoint
 import com.deepanjanxyz.notepad.domain.model.DrawingStroke
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.hypot
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.sin
 
 // Index of each selection handle, clockwise from the top-left corner.
 private const val HANDLE_TOP_LEFT = 0

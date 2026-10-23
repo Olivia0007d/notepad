@@ -40,6 +40,9 @@ private const val HEX_RADIX = 16
 // The range the selected stroke thickness is kept inside, in dp.
 private const val THICKNESS_MIN_DP = 2f
 private const val THICKNESS_MAX_DP = 22f
+// The range the thickness slider covers, in dp.
+private const val THICKNESS_SLIDER_MIN_DP = 2f
+private const val THICKNESS_SLIDER_MAX_DP = 54f
 
 @Composable
 fun ColorCircleItem(
@@ -228,7 +231,7 @@ private fun ThicknessSliderRow(
         Slider(
             value = selectedThickness,
             onValueChange = { onThicknessSelected(it.roundToInt().toFloat()) },
-            valueRange = 2f..54f,
+            valueRange = THICKNESS_SLIDER_MIN_DP..THICKNESS_SLIDER_MAX_DP,
             steps = 25,
             colors = SliderDefaults.colors(
                 thumbColor = AppColors.Accent,

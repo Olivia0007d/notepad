@@ -8,7 +8,7 @@ import com.deepanjanxyz.notepad.domain.model.DrawingStroke
  * The callbacks a drawing canvas raises. Grouped so the canvas can be handed one
  * value rather than seven.
  */
-class DrawingCanvasCallbacks(
+internal class DrawingCanvasCallbacks(
     val onStrokesChange: (List<DrawingStroke>) -> Unit,
     val onCurrentStrokeChange: (DrawingStroke?) -> Unit,
     val onSelectedIndicesChange: (Set<Int>) -> Unit,

@@ -8,13 +8,11 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.animation.DecelerateInterpolator
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.core.tween
@@ -28,7 +26,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -38,25 +35,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Button
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -66,21 +49,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.deepanjanxyz.notepad.domain.model.DrawingSerializer
-import com.deepanjanxyz.notepad.ui.components.AppDrawerContent
-import com.deepanjanxyz.notepad.ui.components.EditLabelsDialog
-import com.deepanjanxyz.notepad.ui.screens.ArchiveScreen
-import com.deepanjanxyz.notepad.ui.screens.DrawingScreen
-import com.deepanjanxyz.notepad.ui.screens.HomeScreen
-import com.deepanjanxyz.notepad.ui.screens.NoteEditorScreen
-import com.deepanjanxyz.notepad.ui.screens.SettingsScreen
-import com.deepanjanxyz.notepad.ui.screens.TrashScreen
 import com.deepanjanxyz.notepad.ui.navigation.AppRoot
-import com.deepanjanxyz.notepad.ui.theme.EliteMemoTheme
 import com.deepanjanxyz.notepad.ui.viewmodel.NotesViewModel
 import com.deepanjanxyz.notepad.ui.viewmodel.Screen
-import kotlinx.coroutines.launch
 
 private const val SPLASH_ANIMATION_DURATION_MS = 300L
 
@@ -132,14 +103,21 @@ class MainActivity : FragmentActivity() {
         splashScreen.setOnExitAnimationListener { provider ->
             val iconView = provider.iconView
             val splashView = provider.view
-            // Both views are non-null, so both are animated: the logo scales up
-            // while the splash fades out, and the splash is handed back when the
-            // three animators finish.
-            val animators: List<Animator> = listOf(
-                ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, 1.2f),
-                ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, 1.2f),
-                ObjectAnimator.ofFloat(splashView, View.ALPHA, 1f, 0f)
-            )
+            // Not every platform hands back both views, so animate only what is
+            // present, and always hand the splash screen back.
+            val animators: List<Animator> = buildList {
+                if (iconView != null) {
+                    add(ObjectAnimator.ofFloat(iconView, View.SCALE_X, 1f, 1.2f))
+                    add(ObjectAnimator.ofFloat(iconView, View.SCALE_Y, 1f, 1.2f))
+                }
+                if (splashView != null) {
+                    add(ObjectAnimator.ofFloat(splashView, View.ALPHA, 1f, 0f))
+                }
+            }
+            if (animators.isEmpty()) {
+                provider.remove()
+                return@setOnExitAnimationListener
+            }
             AnimatorSet().apply {
                 playTogether(animators)
                 duration = SPLASH_ANIMATION_DURATION_MS

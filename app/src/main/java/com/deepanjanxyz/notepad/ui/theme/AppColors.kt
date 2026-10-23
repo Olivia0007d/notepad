@@ -127,4 +127,15 @@ object AppColors {
 
     /** The opaque white a note colour is compared against when it is the default. */
     const val OPAQUE_WHITE = 0xFFFFFFFFL
+
+    // --- Toolbar and editor extras -----------------------------------------------
+
+    /** Cap of the eraser icon on the dark bottom toolbar. */
+    val IconIdleOnTool = Color(0xFFC0C2CC)
+
+    /** Background of a label pill in the editor. */
+    val LabelPillContainer = Color(0xFF382952)
+
+    /** Text of a label pill in the editor. */
+    val LabelPillContent = Color(0xFFD0BCFF)
 }
