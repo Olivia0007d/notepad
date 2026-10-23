@@ -39,7 +39,7 @@ private const val DARK_BACKGROUND_MIDNIGHT = 0xFF121214L
 private const val DARK_BACKGROUND_CHARCOAL = 0xFF1E1E22L
 
 @Composable
-fun DrawingCanvas(
+internal fun DrawingCanvas(
     strokes: List<DrawingStroke>,
     currentStroke: DrawingStroke?,
     canvasBackgroundColor: Long,
